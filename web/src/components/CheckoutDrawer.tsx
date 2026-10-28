@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useBoolVariation, useLDClient } from '@launchdarkly/react-sdk';
 import { FALLBACKS, FLAGS } from '../launchdarkly/config';
 import { useReleaseLog } from '../state/ReleaseLog';
 import { useToast } from '../state/Toasts';
 import { useCart } from '../state/Cart';
+import { useShopper } from '../state/Shopper';
 import ClassicCheckout from './ClassicCheckout';
 import NewCheckout from './NewCheckout';
 import ProductImage from './ProductImage';
@@ -33,12 +34,29 @@ export default function CheckoutDrawer() {
   const ldClient = useLDClient();
   const { showToast } = useToast();
   const { logEvent } = useReleaseLog();
+  const { isSwitchingRef } = useShopper();
+  // The value this shopper is currently seeing, so only real changes are announced.
+  const lastAnnounced = useRef(showNewCheckout);
 
   useEffect(() => {
     // Our callback. The change event carries only the context, not the value,
     // so we read the new value back from the client.
     const handleCheckoutFlagChange = () => {
       const isOn = ldClient.boolVariation(FLAGS.newCheckout, FALLBACKS.newCheckout);
+      const previous = lastAnnounced.current;
+      lastAnnounced.current = isOn;
+      // Change events also fire when flag values first load. Only announce a real
+      // change, after LaunchDarkly has finished initializing.
+      if (isOn === previous || ldClient.getInitializationState?.() === 'initializing') return;
+      const experience = isOn ? 'Express checkout' : 'Classic checkout';
+
+      // A change can also come from switching shoppers (identify), not a release in
+      // LaunchDarkly. Say which, so the demo never calls a targeting change a release.
+      if (isSwitchingRef.current) {
+        showToast({ tone: 'info', title: 'Shopper switched', body: `This shopper gets ${experience}.` });
+        logEvent({ flagKey: FLAGS.newCheckout, value: isOn, note: `Shopper switched: ${experience}` });
+        return;
+      }
       showToast(
         isOn
           ? { tone: 'release', title: 'New checkout released', body: 'Shoppers now see Express checkout. No reload needed.' }
@@ -57,7 +75,7 @@ export default function CheckoutDrawer() {
     // Cleanup: unsubscribe with the same function reference. Without this,
     // listeners pile up (React mounts components twice in development mode).
     return () => ldClient.off(`change:${FLAGS.newCheckout}`, handleCheckoutFlagChange);
-  }, [ldClient, showToast, logEvent]);
+  }, [ldClient, showToast, logEvent, isSwitchingRef]);
 
   const { lines, subtotal, count, isOpen, closeCart, setQuantity, remove, clear } = useCart();
   const [confirmation, setConfirmation] = useState<string | null>(null);

@@ -1,15 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from 'react-router';
 import { CATEGORIES } from '../data/catalog';
-import type { ShopperId, ShopperProfile } from '../launchdarkly/contexts';
 import { useCart } from '../state/Cart';
 import { Logo } from './Brand';
 import CheckoutDrawer from './CheckoutDrawer';
 import ReleaseConsole from './ReleaseConsole';
-
-interface Props {
-  shoppers: Record<ShopperId, ShopperProfile>;
-}
 
 /** Scroll to the top on page changes, like a traditional site. */
 function ScrollToTop() {
@@ -26,8 +21,7 @@ function ScrollToTop() {
  * on every page: the checkout drawer (so its flag listener is always active)
  * and the Release Console.
  */
-export default function Layout({ shoppers }: Props) {
-  const [activeShopper, setActiveShopper] = useState<ShopperId>('guest');
+export default function Layout() {
   const { count, openCart } = useCart();
   const [params] = useSearchParams();
   const { pathname } = useLocation();
@@ -78,7 +72,7 @@ export default function Layout({ shoppers }: Props) {
       </footer>
 
       <CheckoutDrawer />
-      <ReleaseConsole shoppers={shoppers} activeShopper={activeShopper} onShopperChange={setActiveShopper} />
+      <ReleaseConsole />
     </div>
   );
 }

@@ -8,7 +8,7 @@ Switchback Supply plays the role of "ABC Company" from the exercise brief. Each 
 |---|---|---|---|
 | Storefront | All | 25-product catalog with color and size variants, product pages, a persistent cart | Done |
 | **Part 1: Release and Remediate** | Engineering manager | Flag-wrapped checkout, live listener, test in production, flag trigger remediation | Done |
-| Part 2: Target | Developer | Landing page component, contexts with attributes, individual and rule-based targeting | Next |
+| **Part 2: Target** | Developer | Winter-Ready hero behind a flag, shopper contexts with attributes, individual and rule-based targeting | Done |
 | Extra credit 1 | Engineering manager | Observability plus a guarded rollout that rolls itself back | Planned |
 | Extra credit 2 | AI product manager | AgentControl (AI Configs) shopping assistant on Anthropic Claude | Planned |
 
@@ -110,7 +110,45 @@ To test in production, give QA the new checkout before anyone else:
 
 Now only `qa-tester-001` sees Express checkout. Everyone else still gets Classic.
 
-### Step 6: Configure your environment file
+### Step 6: Recreate the Part 2 hero flag
+
+Create a second flag with **exactly** these settings:
+
+| Setting | Value |
+|---|---|
+| Name | Release landing hero |
+| Key | `release-landing-hero` |
+| Type | Boolean (`true` = Winter-Ready hero, `false` = current hero) |
+| Off variation | `false` |
+| **Available on client-side SDKs** | **On** |
+| Permanent flag | Off |
+
+### Step 7: Create the `beta-shoppers` segment
+
+In LaunchDarkly, open **Segments** and create a **rule-based** segment:
+
+| Setting | Value |
+|---|---|
+| Name and key | `beta-shoppers` |
+| Rule | Context kind `user`, attribute `betaTester` **is one of** `true` |
+
+Segments let several flags reuse one audience definition, which is how LaunchDarkly recommends managing early-access groups.
+
+### Step 8: Target the hero
+
+Open `release-landing-hero` > **Targeting** in your environment and set it up **in this order** (LaunchDarkly checks top to bottom and stops at the first match):
+
+| Order | Section | Setting | Serve |
+|---|---|---|---|
+| 1 | Individual targets | Context key `qa-tester-001` | `true` |
+| 2 | Rule "Employees" | `email` **ends with** `@switchbacksupply.test` | `true` |
+| 3 | Rule "Beta shoppers" | Context **is in segment** `beta-shoppers` | `true` |
+| 4 | Rule "Gold members in Central states" | `loyaltyTier` **is one of** `gold` **AND** `state` **is one of** `TN, TX, IL, MN, CO` | `true` |
+| 5 | Default rule | everyone else | `false` |
+
+Turn the flag **On** and save. If you add, remove, or reorder rules, update `HERO_TARGETING` in `web/src/launchdarkly/config.ts` so the Release Console labels them correctly.
+
+### Step 9: Configure your environment file
 
 ```bash
 cp .env.example .env
@@ -125,7 +163,7 @@ LD_TRIGGER_URL_CHECKOUT_OFF=your-generic-trigger-url
 
 `.env` is git-ignored. The trigger URL is deliberately **not** prefixed with `VITE_`, because Vite bundles every `VITE_` variable into public browser code.
 
-### Step 7: Install and run
+### Step 10: Install and run
 
 ```bash
 npm install
@@ -161,7 +199,7 @@ npm run remediate -- "Payment errors spiking on Express checkout"
 
 The trigger turns the flag off, the drawer reverts to Classic live, and the flag's **History** in LaunchDarkly records the change with your incident label. This is the same call a monitoring tool such as Datadog or New Relic would make automatically when an alert fires.
 
-**5. Test in production (optional, requires Step 5 of setup).** Set the default rule back to serve **false** and keep the flag **On**, with `qa-tester-001` individually targeted to **true**. In the Release Console, switch **Shopping as** between **Guest shopper** (Classic) and **Internal QA tester** (Express). Same production code, two audiences, no reload.
+**5. Test in production (optional, requires setup Step 5).** Set the default rule back to serve **false** and keep the flag **On**, with `qa-tester-001` individually targeted to **true**. In the Release Console, switch **Shopping as** between **Guest shopper** (Classic) and **Internal QA tester** (Express). Same production code, two audiences, no reload.
 
 ---
 
@@ -217,6 +255,8 @@ A `POST` to the Generic trigger URL with an optional JSON body (`eventName`, `ur
 | Flag key or fallback value | `web/src/launchdarkly/config.ts` |
 | Client-side ID | `.env` (`VITE_LD_CLIENT_SIDE_ID`) |
 | QA tester key | `web/src/launchdarkly/contexts.ts` |
+| Personas and context attributes | `web/src/launchdarkly/contexts.ts` |
+| Hero targeting labels and Central states | `web/src/launchdarkly/config.ts` (`HERO_TARGETING`, `CENTRAL_STATES`) |
 | Products, prices, colors, sizes | `scripts/catalog-source.py`, then run `npm run catalog` |
 | Product photos | Add `web/public/products/<product-id>.webp`, then run `npm run catalog` |
 | Trigger URL | `.env` (`LD_TRIGGER_URL_CHECKOUT_OFF`) |
@@ -233,18 +273,84 @@ A manual trigger is the first step on a remediation ladder that enterprise teams
 
 ---
 
+## Part 2: Target
+
+### The business problem
+
+The landing page is being revamped by several teams, and Switchback Supply's team owns one component: the **home page hero**. About 40,000 people visit every day, so a bad change is expensive and the project is under a lot of scrutiny. The team wants to put the new hero in front of the right people first (QA, employees, opted-in beta shoppers, and a high-value regional audience) while everyone else keeps today's page, and to change that audience without a deploy.
+
+### What you will see
+
+The hero is wrapped in the boolean flag `release-landing-hero`:
+
+| Flag value | Hero |
+|---|---|
+| `false` (default rule, and the fallback if LaunchDarkly is unreachable) | The current **"Gear for the long way up"** hero |
+| `true` | The revamped **Winter-Ready** hero: a seasonal message, three featured products, and a free-shipping callout |
+
+Every visitor is a LaunchDarkly `user` context built from their shopper profile:
+
+| Attribute | Example | Notes |
+|---|---|---|
+| `key` | `shopper-gold-001`, or a random `guest-...` key | Individual targeting matches on this; never contains personal data |
+| `anonymous` | `true` for guests | Anonymous contexts stay off the Contexts page |
+| `name` | `Gold Member (Nashville)` | Makes contexts easy to find on the Contexts page |
+| `email` | `merch@switchbacksupply.test` | **Private**: usable in targeting rules, stripped from analytics events |
+| `loyaltyTier` | `none`, `silver`, `gold` | |
+| `state`, `country` | `TN`, `US` | `state` is omitted when unknown, so state rules simply do not match |
+| `deviceType` | `desktop` or `mobile` | Detected in the browser, so it works for guests too |
+| `betaTester` | `true` | Drives the `beta-shoppers` segment |
+
+In a real store these values come from the signed-in shopper's account. This demo has no login, so the Release Console offers five **personas** as stand-ins, and lets you edit any shopper's attributes:
+
+| Persona | What it demonstrates | Hero |
+|---|---|---|
+| Guest shopper | Matches nothing, so the default rule applies | Current |
+| Internal QA tester | **Individual targeting** (`qa-tester-001`) | Winter-Ready |
+| Employee | **Rule 1** through the private `email` attribute | Winter-Ready |
+| Beta tester, Seattle | **Rule 2** through the `beta-shoppers` segment | Winter-Ready |
+| Gold member, Nashville | **Rule 3**, a two-clause rule (tier AND state) | Winter-Ready |
+
+The console's **How LaunchDarkly chose the hero** panel shows LaunchDarkly's own evaluation reason for the current shopper, row by row: the matching row, the rows above it that did not match, and the rows below it that were never evaluated.
+
+### Demo walkthrough (about 3 minutes)
+
+Open the home page and expand the **Release Console**.
+
+1. **Default rule.** As **Guest shopper**, you see the current hero. The panel reads "No targeting matched; default rule served".
+2. **Individual targeting.** Choose **Internal QA tester**. The hero swaps to Winter-Ready with no reload, and the panel reads "Individually targeted".
+3. **Rule-based targeting.** Choose **Employee**, then **Beta tester**, then **Gold member**. Each gets the Winter-Ready hero through a different rule: a private attribute, a segment, and a two-clause rule.
+4. **Attributes drive the result.** As the Gold member, change **State** from TN to CA. They leave the Central region, fall through to the default rule, and get the current hero. Switch **Beta tester** on and they match rule 2 instead.
+5. **First match wins.** Turn on **Employee email** as well. Rule 1 now matches, and rule 2 shows "Not evaluated", which is LaunchDarkly's top-to-bottom evaluation made visible.
+6. **Change targeting in LaunchDarkly.** With the Beta tester selected, remove or reorder the Beta shoppers rule in the dashboard and save. The store follows within moments, with no deploy.
+
+The console changes **who the shopper is**; it never changes the rules. Rules live only in LaunchDarkly, because editing them from the browser would require putting a LaunchDarkly write token in public code.
+
+### How it works
+
+- **Contexts** (`web/src/launchdarkly/contexts.ts`): `toLDContext()` turns a shopper's attributes into a `user` context and always marks `email` private with `_meta.privateAttributes`.
+- **Switching shoppers** (`web/src/state/Shopper.tsx`): every persona choice or attribute edit calls `ldClient.identify()`. The SDK fetches values for the new context and the hooks re-render, with no page reload. The checkout listener checks whether a change came from a shopper switch, so the demo never calls a targeting change a "release".
+- **The flagged component** (`web/src/components/LandingHero.tsx`): `useBoolVariation('release-landing-hero', false)` chooses the hero. On the first page load it shows a neutral placeholder for up to 1.2 seconds while LaunchDarkly answers, so a targeted shopper never sees the old hero flash and swap. If LaunchDarkly does not answer in time, it shows the current hero.
+- **Why each shopper got their hero** (`web/src/launchdarkly/explain.ts`): the SDK is started with `withReasons: true`, and `useBoolVariationDetail()` returns LaunchDarkly's reason (`TARGET_MATCH`, `RULE_MATCH` with a rule index, `FALLTHROUGH`, or `OFF`). The console turns that reason into the row-by-row view; it does not re-implement targeting.
+- **Privacy in transit**: the SDK is started with `useReport: true`, so the shopper's context (including the private email) travels in request bodies instead of URLs, where it could land in proxy or server logs. In browsers the SDK then keeps a context-free streaming connection open and fetches fresh values whenever LaunchDarkly signals a change. The end-to-end tests check both that no request URL contains a context and that the email never appears in analytics events.
+
+### Production notes
+
+- **Bootstrapping**: for a 40,000-visitor page, the next step is to render the first page with flag values already in it (server-side evaluation passed to `createLDReactProvider` as `bootstrap`), which removes the placeholder entirely.
+- **Rolling out to everyone**: once the targeted groups are happy, replace the default rule's `false` with a percentage rollout, or a guarded rollout that watches error rate and conversions and rolls back on its own (extra credit 1).
+
 ## Testing
 
 Two layers of automated tests run on every pull request.
 
 | Layer | Tool | What it proves |
 |---|---|---|
-| Unit and component (49 tests) | Vitest + React Testing Library | Checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, and the flagged checkout drawer: Classic for `false`, Express for `true`, the fallback when LaunchDarkly has no value, a live swap with toast and log when the flag changes, and listener cleanup on unmount |
-| End to end (48 tests) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus the flag: **release and roll back mid-checkout with no page reload**, individual targeting for the QA tester, and the fallback when LaunchDarkly is unreachable |
+| Unit and component (69 tests) | Vitest + React Testing Library | Checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
+| End to end (61 test runs) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus both flags: **release and roll back mid-checkout with no page reload**; every Part 2 persona, rule, and attribute edit with the reason shown; a targeting change reaching the shopper live; contexts never in URLs and the private email never in events; and fallbacks when LaunchDarkly is unreachable |
 
 ### How the flag is tested without a LaunchDarkly account
 
-The end-to-end tests run the real LaunchDarkly React SDK against a small local mock of LaunchDarkly's client-side endpoints (`tests/mock-launchdarkly/server.mjs`). It speaks the same streaming protocol, a `put` event with every flag and a `patch` event for each change, so a test can open the checkout drawer, "save" a new flag value, and watch the drawer swap. The app is pointed at the mock with three optional settings, `VITE_LD_BASE_URI`, `VITE_LD_STREAM_URI`, and `VITE_LD_EVENTS_URI`. Those are the same settings a customer uses to route the SDK through a [LaunchDarkly Relay Proxy](https://launchdarkly.com/docs/sdk/relay-proxy); leave them blank to connect to LaunchDarkly directly.
+The end-to-end tests run the real LaunchDarkly React SDK against a small local mock of LaunchDarkly's client-side endpoints (`tests/mock-launchdarkly/server.mjs`). It speaks the same streaming protocol and evaluates the Part 2 targeting (individual targets, rules, a segment, and the default rule, in LaunchDarkly's order), so a test can open the checkout drawer, "save" a new flag value, and watch the drawer swap, or switch personas and check which rule LaunchDarkly reported. The app is pointed at the mock with three optional settings, `VITE_LD_BASE_URI`, `VITE_LD_STREAM_URI`, and `VITE_LD_EVENTS_URI`. Those are the same settings a customer uses to route the SDK through a [LaunchDarkly Relay Proxy](https://launchdarkly.com/docs/sdk/relay-proxy); leave them blank to connect to LaunchDarkly directly.
 
 Every test runs against the Vite dev server, where React's StrictMode surfaces effect and cleanup bugs. The release-critical tests (tagged `@smoke`) also run against an optimized production build.
 
@@ -267,6 +373,8 @@ The end-to-end tests never contact real LaunchDarkly and do not use your `.env` 
 | Console shows "Timed out" or "Failed" | Wrong client-side ID, no network, or a browser extension blocking LaunchDarkly. The app keeps working on fallback values. |
 | Flag changes do nothing | "Available on client-side SDKs" is off for the flag, or the flag lives in a different environment than your client-side ID. |
 | QA tester does not get Express checkout | The flag must be **On** for individual targets to apply, and the key must be exactly `qa-tester-001`. |
+| The hero never changes for any persona | Check that `release-landing-hero` exists, is **On**, is available to client-side SDKs, and has the targeting from Step 8. |
+| The console names the wrong rule | The rule order in LaunchDarkly differs from `HERO_TARGETING` in `web/src/launchdarkly/config.ts`; make them match. |
 | `npm run remediate` fails with HTTP 404 | The trigger was reset or deleted. Create or reset it and update `.env`. |
 
 ---
@@ -278,7 +386,7 @@ switchback-supply/
   data/catalog.json             25 products, 109 SKUs (generated; shared with the server later)
   web/                          React 19 + Vite + TypeScript storefront
     src/main.tsx                LaunchDarkly provider setup
-    src/launchdarkly/           Flag keys, fallbacks, and contexts
+    src/launchdarkly/           Flag keys, fallbacks, contexts, personas, reason explainer
     src/pages/                  Home, shop, product page, not found
     src/components/             Layout, product cards, checkout variants, Release Console
     src/state/                  Cart (persisted by SKU), toasts, and the listener log
@@ -315,6 +423,9 @@ switchback-supply/
 - [Flag triggers](https://launchdarkly.com/docs/home/releases/triggers) and [Creating flag triggers](https://launchdarkly.com/docs/home/releases/triggers-create)
 - [Individual targeting](https://launchdarkly.com/docs/home/flags/individual-targeting)
 - [Anonymous contexts](https://launchdarkly.com/docs/sdk/features/anonymous) and [Identifying contexts](https://launchdarkly.com/docs/sdk/features/identify)
+- [Contexts](https://launchdarkly.com/docs/home/flags/contexts), [Context configuration](https://launchdarkly.com/docs/sdk/features/context-config), and [Private attributes](https://launchdarkly.com/docs/sdk/features/private-attributes)
+- [Targeting rules](https://launchdarkly.com/docs/home/flags/target-rules), [Flag evaluation rules](https://launchdarkly.com/docs/sdk/concepts/flag-evaluation-rules), and [Segments](https://launchdarkly.com/docs/home/flags/segment-types)
+- [Evaluation reasons](https://launchdarkly.com/docs/sdk/concepts/evaluation-reasons) and [Bootstrapping](https://launchdarkly.com/docs/sdk/features/bootstrapping)
 - [Kill switch flags](https://launchdarkly.com/docs/home/flags/killswitch) and [Guarded rollouts](https://launchdarkly.com/docs/home/releases/guarded-rollouts)
 
 ## About the catalog

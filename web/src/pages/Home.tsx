@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { Contours } from '../components/Brand';
+import LandingHero from '../components/LandingHero';
 import ProductCard from '../components/ProductCard';
 import ProductImage from '../components/ProductImage';
 import { CATEGORIES, PRODUCTS } from '../data/catalog';
@@ -22,28 +22,8 @@ export default function Home() {
 
   return (
     <>
-      {/* Part 2 wraps this hero in a targeted feature flag. */}
-      <section className="hero">
-        <Contours />
-        <div className="hero__copy">
-          <p className="eyebrow">Fall trail season</p>
-          <h1 className="hero__title">
-            Gear for the
-            <br />
-            long way up.
-          </h1>
-          <p className="hero__sub">
-            Field-tested packs, boots, and shells for every switchback between the trailhead and the summit.
-          </p>
-          <Link className="btn btn--primary" to="/shop">
-            Shop the trail kit
-          </Link>
-        </div>
-        <div className="hero__marker" aria-hidden="true">
-          <span>EL. 6,643 FT</span>
-          <span>MILE 12.4</span>
-        </div>
-      </section>
+      {/* PART 2: the hero is a flagged component (release-landing-hero). */}
+      <LandingHero />
 
       <section className="section">
         <div className="section__head">

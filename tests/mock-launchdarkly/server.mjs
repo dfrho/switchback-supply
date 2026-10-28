@@ -1,40 +1,56 @@
 #!/usr/bin/env node
 /**
  * A tiny stand-in for LaunchDarkly's client-side endpoints, used only by the
- * end-to-end tests. It speaks the same streaming protocol as LaunchDarkly
- * (a `put` event with all flags, `patch` events for changes), so the real
- * React SDK runs unmodified against it.
+ * end-to-end tests. It speaks LaunchDarkly's streaming protocol, so the real
+ * React SDK runs unmodified against it:
+ *   - GET mode:    GET /eval/{env}/{base64 context} streams `put`, then `patch` per change
+ *   - REPORT mode: GET /ping/{env} streams `ping`; the SDK then fetches values with
+ *                  REPORT /sdk/evalx/{env}/context (context in the body, never the URL)
+ *
+ * It also evaluates a useful subset of LaunchDarkly targeting, in LaunchDarkly's
+ * order: flag off, individual targets, rules (first match wins), default rule.
+ * Supported clause operators: in, endsWith, segmentMatch. Segments are rule-based.
  *
  * The app points here through VITE_LD_BASE_URI / VITE_LD_STREAM_URI /
  * VITE_LD_EVENTS_URI, the same settings a customer would use for a Relay Proxy.
  *
  * Admin API (used by tests):
- *   POST /__mock/reset    { flags?: {key: value}, targets?: {flagKey: {contextKey: value}} }
- *   POST /__mock/flags    { key, value }                  change the default value, streams a patch
- *   POST /__mock/targets  { flag, contextKey, value }     individually target one context key
- *   GET  /__mock/state    current flags, targets, open streams, and events received
+ *   POST /__mock/reset    { flags?: {key: value | FlagConfig}, segments?: {key: Segment} }
+ *   POST /__mock/flags    { key, value }                 set the default rule's value
+ *   POST /__mock/targets  { flag, contextKey, value }    individually target one context
+ *   GET  /__mock/state    flags, segments, open streams, request log
+ *   GET  /__mock/events   analytics event payloads received (to check private attributes)
+ *
+ * FlagConfig: { on?, fallthrough, offValue?, targets?: {contextKey: value},
+ *               rules?: [{ id, clauses: [{ attribute, op, values }], value }] }
  *
  * Run: node tests/mock-launchdarkly/server.mjs [port]   (default 8787)
  */
 import { createServer } from 'node:http';
 
 const PORT = Number(process.argv[2] ?? process.env.MOCK_LD_PORT ?? 8787);
-const DEFAULT_FLAGS = { 'release-new-checkout': false };
+const DEFAULT_FLAGS = { 'release-new-checkout': false, 'release-landing-hero': false };
 
 let flags = {};
-let targets = {};
+let segments = {};
 let versions = {};
-let eventPayloads = 0;
-const streams = new Set(); // { res, context }
+let requestLog = [];
+let eventBodies = [];
+const streams = new Set(); // { res, mode: 'get' | 'ping', context? }
+
+const isConfig = (v) => v !== null && typeof v === 'object' && 'fallthrough' in v;
+const toConfig = (v) => (isConfig(v) ? { on: true, offValue: false, targets: {}, rules: [], ...v } : { on: true, fallthrough: v, offValue: false, targets: {}, rules: [] });
 
 function reset(next = {}) {
-  flags = { ...DEFAULT_FLAGS, ...(next.flags ?? {}) };
-  targets = structuredClone(next.targets ?? {});
+  const merged = { ...DEFAULT_FLAGS, ...(next.flags ?? {}) };
+  flags = Object.fromEntries(Object.entries(merged).map(([k, v]) => [k, toConfig(structuredClone(v))]));
+  segments = structuredClone(next.segments ?? {});
   versions = Object.fromEntries(Object.keys(flags).map((k) => [k, 1]));
+  requestLog = [];
+  eventBodies = [];
 }
 reset();
 
-/** The context arrives base64url-encoded in the request path. */
 function decodeContext(segment) {
   try {
     return JSON.parse(Buffer.from(decodeURIComponent(segment), 'base64url').toString('utf8'));
@@ -44,33 +60,67 @@ function decodeContext(segment) {
 }
 
 const contextKey = (context) => context?.key ?? context?.user?.key;
+const attr = (context, name) => (context?.kind === 'multi' ? context.user?.[name] : context?.[name]);
 
-/** Evaluate one flag for one context: individual target first, then the default value. */
+function clauseMatches(clause, context) {
+  if (clause.op === 'segmentMatch') {
+    return clause.values.some((segKey) => {
+      const seg = segments[segKey];
+      if (!seg) return false;
+      if ((seg.included ?? []).includes(contextKey(context))) return true;
+      return (seg.rules ?? []).some((r) => r.clauses.every((c) => clauseMatches(c, context)));
+    });
+  }
+  const actual = attr(context, clause.attribute);
+  if (actual === undefined || actual === null) return false; // missing attribute: clause does not match
+  switch (clause.op) {
+    case 'in':
+      return clause.values.includes(actual);
+    case 'endsWith':
+      return typeof actual === 'string' && clause.values.some((v) => actual.endsWith(v));
+    default:
+      return false;
+  }
+}
+
+/** Evaluate one flag for one context, in LaunchDarkly's order. */
 function evaluate(flagKey, context) {
-  const key = contextKey(context);
-  const targeted = key !== undefined && targets[flagKey] && Object.hasOwn(targets[flagKey], key);
-  const value = targeted ? targets[flagKey][key] : flags[flagKey];
-  return {
+  const f = flags[flagKey];
+  const version = versions[flagKey] ?? 1;
+  const result = (value, reason) => ({
     key: flagKey,
     value,
     variation: value === true ? 0 : value === false ? 1 : 0,
-    version: versions[flagKey] ?? 1,
-    flagVersion: versions[flagKey] ?? 1,
-    reason: targeted ? { kind: 'TARGET_MATCH' } : { kind: 'FALLTHROUGH' },
+    version,
+    flagVersion: version,
+    reason,
     trackEvents: false,
-  };
+  });
+  if (!f.on) return result(f.offValue, { kind: 'OFF' });
+  const key = contextKey(context);
+  if (key !== undefined && Object.hasOwn(f.targets, key)) return result(f.targets[key], { kind: 'TARGET_MATCH' });
+  for (const [i, rule] of f.rules.entries()) {
+    if (rule.clauses.every((c) => clauseMatches(c, context))) {
+      return result(rule.value, { kind: 'RULE_MATCH', ruleIndex: i, ruleId: rule.id ?? `rule-${i}` });
+    }
+  }
+  return result(f.fallthrough, { kind: 'FALLTHROUGH' });
 }
 
 function allFlags(context) {
-  return Object.fromEntries(Object.keys(flags).map((k) => {
-    const { key, ...rest } = evaluate(k, context);
-    return [key, rest];
-  }));
+  return Object.fromEntries(
+    Object.keys(flags).map((k) => {
+      const { key, ...rest } = evaluate(k, context);
+      return [key, rest];
+    }),
+  );
 }
 
-function broadcastPatch(flagKey) {
+/** Tell every connected SDK that flags changed. */
+function broadcastChange(flagKey) {
   for (const stream of streams) {
-    stream.res.write(`event: patch\ndata: ${JSON.stringify(evaluate(flagKey, stream.context))}\n\n`);
+    if (stream.mode === 'ping') stream.res.write('event: ping\ndata: {}\n\n');
+    else stream.res.write(`event: patch\ndata: ${JSON.stringify(evaluate(flagKey, stream.context))}\n\n`);
   }
 }
 
@@ -85,74 +135,79 @@ function send(res, status, body, headers = {}) {
   res.end(body === undefined ? '' : JSON.stringify(body));
 }
 
-async function readJson(req) {
+async function readBody(req) {
   let raw = '';
   for await (const chunk of req) raw += chunk;
-  return raw ? JSON.parse(raw) : {};
+  return raw;
+}
+
+function openStream(req, res, stream, firstEvent) {
+  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', ...CORS });
+  streams.add(stream);
+  res.write(firstEvent);
+  const keepAlive = setInterval(() => res.write(':\n\n'), 15000);
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    streams.delete(stream);
+  });
 }
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const parts = url.pathname.split('/').filter(Boolean);
-
   if (req.method === 'OPTIONS') return send(res, 204);
+  if (!url.pathname.startsWith('/__mock')) requestLog.push(`${req.method} ${url.pathname}`);
 
   // ---- Admin API ---------------------------------------------------------
   if (url.pathname === '/__mock/reset' && req.method === 'POST') {
-    reset(await readJson(req));
-    for (const stream of streams) stream.res.write(`event: put\ndata: ${JSON.stringify(allFlags(stream.context))}\n\n`);
-    return send(res, 200, { ok: true, flags, targets });
+    reset(JSON.parse((await readBody(req)) || '{}'));
+    for (const key of Object.keys(flags)) broadcastChange(key);
+    return send(res, 200, { ok: true });
   }
   if (url.pathname === '/__mock/flags' && req.method === 'POST') {
-    const { key, value } = await readJson(req);
-    flags[key] = value;
+    const { key, value } = JSON.parse(await readBody(req));
+    flags[key] = flags[key] ?? toConfig(value);
+    flags[key].fallthrough = value;
+    flags[key].on = true;
     versions[key] = (versions[key] ?? 1) + 1;
-    broadcastPatch(key);
+    broadcastChange(key);
     return send(res, 200, { ok: true, key, value, streams: streams.size });
   }
   if (url.pathname === '/__mock/targets' && req.method === 'POST') {
-    const { flag, contextKey: key, value } = await readJson(req);
-    targets[flag] = { ...(targets[flag] ?? {}), [key]: value };
+    const { flag, contextKey: key, value } = JSON.parse(await readBody(req));
+    flags[flag].targets[key] = value;
     versions[flag] = (versions[flag] ?? 1) + 1;
-    broadcastPatch(flag);
+    broadcastChange(flag);
     return send(res, 200, { ok: true });
   }
   if (url.pathname === '/__mock/state') {
-    return send(res, 200, { flags, targets, streams: streams.size, eventPayloads });
+    return send(res, 200, { flags, segments, streams: streams.size, requests: requestLog });
+  }
+  if (url.pathname === '/__mock/events') {
+    return send(res, 200, { payloads: eventBodies });
   }
 
-  // ---- Streaming: GET /eval/{clientSideId}/{base64Context} ---------------
+  // ---- Streaming, GET mode: /eval/{env}/{base64Context} ------------------
   if (parts[0] === 'eval' && req.method === 'GET' && parts.length >= 3) {
     const context = decodeContext(parts[2]);
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-      ...CORS,
-    });
-    const stream = { res, context };
-    streams.add(stream);
-    res.write(`event: put\ndata: ${JSON.stringify(allFlags(context))}\n\n`);
-    const keepAlive = setInterval(() => res.write(':\n\n'), 15000);
-    req.on('close', () => {
-      clearInterval(keepAlive);
-      streams.delete(stream);
-    });
-    return;
+    return openStream(req, res, { res, mode: 'get', context }, `event: put\ndata: ${JSON.stringify(allFlags(context))}\n\n`);
+  }
+  // ---- Streaming, REPORT mode in browsers: /ping/{env} -------------------
+  if (parts[0] === 'ping' && req.method === 'GET') {
+    return openStream(req, res, { res, mode: 'ping' }, 'event: ping\ndata: {}\n\n');
   }
 
-  // ---- Polling: GET /sdk/evalx/{clientSideId}/contexts/{base64Context} ---
-  if (parts[0] === 'sdk' && parts[1] === 'evalx' && req.method === 'GET') {
-    return send(res, 200, allFlags(decodeContext(parts.at(-1))));
+  // ---- Polling: GET .../contexts/{base64Context} or REPORT .../context ---
+  if (parts[0] === 'sdk' && parts[1] === 'evalx') {
+    if (req.method === 'REPORT') return send(res, 200, allFlags(JSON.parse((await readBody(req)) || '{}')));
+    if (req.method === 'GET') return send(res, 200, allFlags(decodeContext(parts.at(-1))));
   }
   if (parts[0] === 'sdk' && parts[1] === 'goals') return send(res, 200, []);
 
-  // ---- Analytics and diagnostic events: accept and count ----------------
+  // ---- Analytics and diagnostic events: keep the payloads ----------------
   if (req.method === 'POST') {
-    for await (const _ of req) {
-      // drain the body
-    }
-    eventPayloads += 1;
+    const body = await readBody(req);
+    if (url.pathname.includes('/bulk/')) eventBodies.push(body);
     return send(res, 202);
   }
 

@@ -1,14 +1,10 @@
 import { useState } from 'react';
-import { useBoolVariation, useInitializationStatus, useLDClient } from '@launchdarkly/react-sdk';
-import { FALLBACKS, FLAGS } from '../launchdarkly/config';
-import type { ShopperId, ShopperProfile } from '../launchdarkly/contexts';
+import { useBoolVariation, useBoolVariationDetail, useInitializationStatus } from '@launchdarkly/react-sdk';
+import { CENTRAL_STATES, FALLBACKS, FLAGS, HERO_TARGETING } from '../launchdarkly/config';
+import { EMPLOYEE_EMAIL, STATE_OPTIONS, type LoyaltyTier, type PersonaId } from '../launchdarkly/contexts';
+import { explainEvaluation, type EvaluationReason } from '../launchdarkly/explain';
 import { useReleaseLog } from '../state/ReleaseLog';
-
-interface Props {
-  shoppers: Record<ShopperId, ShopperProfile>;
-  activeShopper: ShopperId;
-  onShopperChange: (id: ShopperId) => void;
-}
+import { useShopper } from '../state/Shopper';
 
 const CONSOLE_KEY = 'switchback.console';
 
@@ -19,12 +15,15 @@ const STATUS_LABEL: Record<string, string> = {
   failed: 'Failed (serving fallbacks)',
 };
 
+const ROW_STATUS_LABEL = { match: 'Match', 'no-match': 'No match', 'not-evaluated': 'Not evaluated' } as const;
+
 /**
- * Release Console: a demo-only panel that makes LaunchDarkly visible.
- * It shows SDK status, the live flag value, who the SDK thinks you are,
- * and a timestamped log written by the checkout's flag change listener.
+ * Release Console: a demo-only panel built on the SDK's hooks to make LaunchDarkly
+ * visible. It shows SDK status, both flags, who the SDK thinks you are (editable),
+ * how LaunchDarkly decided the hero flag, and the checkout listener's log.
+ * Not part of the LaunchDarkly SDK, and not something shoppers would see.
  */
-export default function ReleaseConsole({ shoppers, activeShopper, onShopperChange }: Props) {
+export default function ReleaseConsole() {
   // Remember whether the console is open. Default: collapsed, so it never covers the store.
   const [expanded, setExpandedState] = useState<boolean>(() => {
     try {
@@ -43,24 +42,13 @@ export default function ReleaseConsole({ shoppers, activeShopper, onShopperChang
       // Ignore: the preference just will not persist.
     }
   };
-  const [switching, setSwitching] = useState(false);
-  const ldClient = useLDClient();
+
   const { status } = useInitializationStatus();
   const newCheckout = useBoolVariation(FLAGS.newCheckout, FALLBACKS.newCheckout);
+  const hero = useBoolVariationDetail(FLAGS.landingHero, FALLBACKS.landingHero);
+  const explanation = explainEvaluation(hero.reason as EvaluationReason | null | undefined, HERO_TARGETING);
   const { events } = useReleaseLog();
-
-  /**
-   * Switching shoppers calls identify(): the SDK swaps the evaluation context and
-   * fetches flag values for the new context. Hooks re-render with the new values,
-   * still with no page reload. identify() never rejects; it resolves with a status.
-   */
-  const switchShopper = async (id: ShopperId) => {
-    if (id === activeShopper) return; // identify is not free; skip no-op calls
-    setSwitching(true);
-    const result = await ldClient.identify(shoppers[id].context);
-    setSwitching(false);
-    if (result.status === 'completed') onShopperChange(id);
-  };
+  const { personas, personaId, attributes, edited, switching, choosePersona, updateAttributes } = useShopper();
 
   return (
     <section className={`console ${expanded ? 'console--open' : ''}`} aria-label="LaunchDarkly release console">
@@ -77,33 +65,88 @@ export default function ReleaseConsole({ shoppers, activeShopper, onShopperChang
           <dl className="console__grid">
             <dt>SDK</dt>
             <dd>{STATUS_LABEL[status] ?? status}</dd>
-            <dt>Flag</dt>
-            <dd className="mono">{FLAGS.newCheckout}</dd>
-            <dt>Serving</dt>
+            <dt>Checkout</dt>
             <dd>
+              <span className="mono small">{FLAGS.newCheckout}</span>
               <span className={`value-pill ${newCheckout ? 'value-pill--on' : ''}`}>{String(newCheckout)}</span>
-              <span className="muted">{newCheckout ? 'Express checkout' : 'Classic checkout'}</span>
+            </dd>
+            <dt>Hero</dt>
+            <dd>
+              <span className="mono small">{FLAGS.landingHero}</span>
+              <span className={`value-pill ${hero.value ? 'value-pill--on' : ''}`} data-testid="hero-flag-value">
+                {String(hero.value)}
+              </span>
             </dd>
           </dl>
 
-          <div className="console__shopper">
-            <p className="console__label">Shopping as</p>
-            <div className="seg" role="radiogroup" aria-label="Shopper context">
-              {(Object.keys(shoppers) as ShopperId[]).map((id) => (
-                <button
-                  key={id}
-                  role="radio"
-                  aria-checked={activeShopper === id}
-                  className={`seg__btn ${activeShopper === id ? 'is-active' : ''}`}
-                  disabled={switching}
-                  onClick={() => switchShopper(id)}
-                  title={shoppers[id].description}
-                >
-                  {shoppers[id].label}
-                </button>
-              ))}
+          <fieldset className="console__shopper" disabled={switching}>
+            <legend className="console__label">Shopping as</legend>
+            <label className="console__field console__field--wide">
+              <span className="sr-only">Persona</span>
+              <select value={personaId} onChange={(e) => choosePersona(e.target.value as PersonaId)} aria-label="Persona">
+                {(Object.keys(personas) as PersonaId[]).map((id) => (
+                  <option key={id} value={id}>
+                    {personas[id].label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="muted mono small" data-testid="context-key">
+              key: {attributes.key}
+              {attributes.anonymous ? ' (anonymous)' : ''}
+              {edited ? ' · edited' : ''}
+            </p>
+
+            <p className="console__label">Shopper attributes</p>
+            <div className="attr-grid">
+              <Toggle
+                label="Employee email"
+                hint="private"
+                checked={!!attributes.email}
+                onChange={(on) => updateAttributes({ email: on ? EMPLOYEE_EMAIL : undefined })}
+              />
+              <Toggle
+                label="Beta tester"
+                checked={attributes.betaTester}
+                onChange={(on) => updateAttributes({ betaTester: on })}
+              />
+              <label className="console__field">
+                Loyalty tier
+                <select value={attributes.loyaltyTier} onChange={(e) => updateAttributes({ loyaltyTier: e.target.value as LoyaltyTier })}>
+                  <option value="none">none</option>
+                  <option value="silver">silver</option>
+                  <option value="gold">gold</option>
+                </select>
+              </label>
+              <label className="console__field">
+                State
+                <select value={attributes.state ?? ''} onChange={(e) => updateAttributes({ state: e.target.value || undefined })}>
+                  <option value="">unknown</option>
+                  {STATE_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                      {(CENTRAL_STATES as readonly string[]).includes(s) ? ' (Central)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <p className="muted mono small">key: {String((shoppers[activeShopper].context as { key: string }).key)}</p>
+          </fieldset>
+
+          <div className="console__decision">
+            <p className="console__label">How LaunchDarkly chose the hero</p>
+            <p className="decision__summary" data-testid="hero-decision">
+              {explanation.summary}
+            </p>
+            <ol className="decision__rows">
+              {explanation.rows.map((row) => (
+                <li key={row.id} className={`decision__row decision__row--${row.status}`} data-row={row.id} title={row.detail}>
+                  <span>{row.label}</span>
+                  <span className="decision__status">{ROW_STATUS_LABEL[row.status]}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="muted small">First match wins, top to bottom.</p>
           </div>
 
           <div className="console__log">
@@ -124,5 +167,18 @@ export default function ReleaseConsole({ shoppers, activeShopper, onShopperChang
         </div>
       )}
     </section>
+  );
+}
+
+function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className="toggle">
+      <input type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="toggle__track" aria-hidden="true" />
+      <span>
+        {label}
+        {hint && <span className="toggle__hint"> {hint}</span>}
+      </span>
+    </label>
   );
 }
