@@ -41,6 +41,9 @@ jobs:
       - name: Check shell scripts
         run: bash -n scripts/*.sh
 
+      - name: Dry run the LaunchDarkly setup script
+        run: npm run ld:setup -- --dry-run
+
       - name: Guard against committed secrets
         # Fails if anything that looks like a LaunchDarkly server SDK key, API token,
         # or trigger URL is committed. Client-side IDs are public by design and allowed.

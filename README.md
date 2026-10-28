@@ -110,6 +110,19 @@ To test in production, give QA the new checkout before anyone else:
 
 Now only `qa-tester-001` sees Express checkout. Everyone else still gets Classic.
 
+### Steps 6 to 8, the fast way: `npm run ld:setup`
+
+Steps 6 to 8 can be done by hand (below) or with one command. The script creates the hero flag and the `beta-shoppers` segment if they are missing, then sets the targeting exactly as in Step 8 and turns the flag On. It is safe to run again.
+
+1. Create an API access token: LaunchDarkly > **Organization settings** > **Authorization** > **Create token**, role **Writer**. It is shown once.
+2. Add it to `.env` (see Step 9) as `LD_API_TOKEN=...`. Like the trigger URL, it is never prefixed with `VITE_` and never committed.
+3. If your project or environment keys are not `default` and `production`, set `LD_PROJECT_KEY` and `LD_ENVIRONMENT_KEY` too.
+4. Run `npm run ld:setup` (or `npm run ld:setup -- --dry-run` to see the changes first).
+
+The script also checks that the environment it changes is the one your `VITE_LD_CLIENT_SIDE_ID` belongs to. The configuration lives in `scripts/ld-targeting.mjs`, and a unit test keeps it in step with the Release Console's labels.
+
+Why this exists: in a brand-new environment, the dashboard's attribute dropdown lists only attributes LaunchDarkly has already received from an SDK, so `betaTester`, `loyaltyTier`, and `state` cannot be picked until shoppers with those attributes have visited. The REST API has no such limit.
+
 ### Step 6: Recreate the Part 2 hero flag
 
 Create a second flag with **exactly** these settings:
@@ -130,7 +143,9 @@ In LaunchDarkly, open **Segments** and create a **rule-based** segment:
 | Setting | Value |
 |---|---|
 | Name and key | `beta-shoppers` |
-| Rule | Context kind `user`, attribute `betaTester` **is one of** `true` |
+| Rule | Context kind `user`, attribute `betaTester` **is one of** `true` (boolean, not the string "true") |
+
+If `betaTester` is not in the attribute dropdown, LaunchDarkly has not yet received a context with it: run the app, switch the Release Console to **Beta tester, Seattle**, and wait for the context to appear on the **Contexts** page, or use `npm run ld:setup`.
 
 Segments let several flags reuse one audience definition, which is how LaunchDarkly recommends managing early-access groups.
 
@@ -375,6 +390,9 @@ The end-to-end tests never contact real LaunchDarkly and do not use your `.env` 
 | QA tester does not get Express checkout | The flag must be **On** for individual targets to apply, and the key must be exactly `qa-tester-001`. |
 | The hero never changes for any persona | Check that `release-landing-hero` exists, is **On**, is available to client-side SDKs, and has the targeting from Step 8. |
 | The console names the wrong rule | The rule order in LaunchDarkly differs from `HERO_TARGETING` in `web/src/launchdarkly/config.ts`; make them match. |
+| An attribute is missing from a dashboard dropdown | LaunchDarkly lists only attributes it has received. Switch personas in the Release Console and wait for **Contexts** to update, or use `npm run ld:setup`. |
+| Contexts and Live events stay empty, but flags work | Analytics events are being blocked. In DevTools > Network, requests to `events.launchdarkly.com` show `(blocked:other)` when a browser extension or Brave Shields blocks them. Allow the domain or use a clean browser profile. Flags keep working, because evaluation does not depend on events. |
+| `npm run ld:setup` fails with HTTP 401 or 403 | The API token is missing, invalid, or lacks the Writer role. |
 | `npm run remediate` fails with HTTP 404 | The trigger was reset or deleted. Create or reset it and update `.env`. |
 
 ---
@@ -392,6 +410,8 @@ switchback-supply/
     src/state/                  Cart (persisted by SKU), toasts, and the listener log
     public/products/            Product photos (WebP, 800 x 800)
   scripts/remediate.sh          Calls the flag trigger (Part 1 remediation)
+  scripts/ld-setup.mjs          Applies the Part 2 flag, segment, and targeting through the REST API
+  scripts/ld-targeting.mjs      The Part 2 configuration as data (reviewed in pull requests)
   scripts/catalog-source.py     Product copy, prices, and variants; generates data/catalog.json
   scripts/validate-catalog.mjs  Catalog checks run in CI
   vercel.json                   Build settings and single-page app routing for Vercel
@@ -411,6 +431,7 @@ switchback-supply/
 | `npm run typecheck` | TypeScript check only |
 | `npm run lint` | Lint with oxlint |
 | `npm run remediate -- "label"` | Turn the checkout flag off through its trigger |
+| `npm run ld:setup` | Create and target the Part 2 hero flag and segment in LaunchDarkly (`-- --dry-run` to preview) |
 | `npm test` | Unit and component tests |
 | `npm run test:e2e` | End-to-end tests in Chromium (run `npx playwright install chromium` once first) |
 | `npm run catalog` | Regenerate `data/catalog.json` from `scripts/catalog-source.py` (needs Python 3) |
@@ -426,6 +447,7 @@ switchback-supply/
 - [Contexts](https://launchdarkly.com/docs/home/flags/contexts), [Context configuration](https://launchdarkly.com/docs/sdk/features/context-config), and [Private attributes](https://launchdarkly.com/docs/sdk/features/private-attributes)
 - [Targeting rules](https://launchdarkly.com/docs/home/flags/target-rules), [Flag evaluation rules](https://launchdarkly.com/docs/sdk/concepts/flag-evaluation-rules), and [Segments](https://launchdarkly.com/docs/home/flags/segment-types)
 - [Evaluation reasons](https://launchdarkly.com/docs/sdk/concepts/evaluation-reasons) and [Bootstrapping](https://launchdarkly.com/docs/sdk/features/bootstrapping)
+- [REST API: update feature flag with semantic patch](https://launchdarkly.com/docs/api/feature-flags/patch-feature-flag), [update segment](https://launchdarkly.com/docs/api/segments/patch-segment), and [API access tokens](https://launchdarkly.com/docs/home/account/api)
 - [Kill switch flags](https://launchdarkly.com/docs/home/flags/killswitch) and [Guarded rollouts](https://launchdarkly.com/docs/home/releases/guarded-rollouts)
 
 ## About the catalog
