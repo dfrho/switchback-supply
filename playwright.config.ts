@@ -27,7 +27,8 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   timeout: 30_000,
   expect: { timeout: 7_000 },
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
+  // In CI, 'github' turns failures into annotations on the pull request.
+  reporter: process.env.CI ? [['github'], ['list'], ['html', { open: 'never' }]] : [['list']],
   use: {
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
