@@ -50,10 +50,10 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'cairn-poles',
-    name: 'Cairn Carbon Poles',
+    name: 'Cairn Expanding Carbon Poles',
     category: 'Trekking',
     price: 149,
-    blurb: 'Three-section carbon poles with cork grips. 480 g per pair.',
+    blurb: 'Expanding three-section carbon poles that adjust from 100 to 135 cm, with cork grips. 480 g per pair.',
     art: 'poles',
     tone: '#d6cde3',
   },
