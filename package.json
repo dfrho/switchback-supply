@@ -1,0 +1,19 @@
+{
+  "name": "switchback-supply",
+  "private": true,
+  "description": "LaunchDarkly sample storefront: release, remediate, target, and observe features for a fictional outdoor gear retailer.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace web",
+    "build": "npm run build --workspace web",
+    "typecheck": "npm run typecheck --workspace web",
+    "lint": "npm run lint --workspace web",
+    "remediate": "bash scripts/remediate.sh"
+  }
+}

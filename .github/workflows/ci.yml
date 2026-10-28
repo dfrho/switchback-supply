@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Typecheck, lint, and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Check shell scripts
+        run: bash -n scripts/*.sh
+
+      - name: Guard against committed secrets
+        # Fails if anything that looks like a LaunchDarkly server SDK key, API token,
+        # or trigger URL is committed. Client-side IDs are public by design and allowed.
+        run: |
+          if git grep -nE "sdk-[0-9a-f]{8}-[0-9a-f]{4}-|api-[0-9a-f]{8}-[0-9a-f]{4}-|app\.launchdarkly\.com/webhook/trig" -- . ':!.github/workflows/ci.yml'; then
+            echo "Possible secret committed. Remove it and rotate the key in LaunchDarkly."
+            exit 1
+          fi
