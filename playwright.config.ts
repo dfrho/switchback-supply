@@ -30,6 +30,8 @@ export default defineConfig({
   // In CI, 'github' turns failures into annotations on the pull request.
   reporter: process.env.CI ? [['github'], ['list'], ['html', { open: 'never' }]] : [['list']],
   use: {
+    // The store honors prefers-reduced-motion, so animations cannot make tests timing-dependent.
+    reducedMotion: 'reduce',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

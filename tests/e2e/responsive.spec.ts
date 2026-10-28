@@ -21,6 +21,8 @@ test.describe('phone layout (390 px)', () => {
 
   test('the checkout drawer fills the screen and its fields fit', async ({ page }) => {
     await addToPack(page, product('canyon-bottle'));
+    // Wait until the drawer has finished sliding in before measuring.
+    await expect.poll(async () => (await drawer(page).boundingBox())?.x).toBe(0);
     const box = await drawer(page).boundingBox();
     expect(box!.width).toBeGreaterThanOrEqual(388);
     const fieldOverflow = await drawer(page).evaluate((el) =>
