@@ -35,6 +35,13 @@ export const FLAGS = {
    * variations true / false, off variation false.
    */
   newCheckout: 'release-new-checkout',
+  /**
+   * Part 2: Target.
+   * RECREATE THIS FLAG: boolean, key "release-landing-hero",
+   * variations true (Winter-Ready hero) / false (current hero), off variation false.
+   * Targeting is described in HERO_TARGETING below and in the README.
+   */
+  landingHero: 'release-landing-hero',
 } as const;
 
 /**
@@ -43,4 +50,26 @@ export const FLAGS = {
  */
 export const FALLBACKS = {
   newCheckout: false,
+  landingHero: false,
+} as const;
+
+/**
+ * The Central region used by the "Gold members in Central states" rule.
+ * Keep this list in sync with the rule's "state is one of" values in LaunchDarkly.
+ */
+export const CENTRAL_STATES = ['TN', 'TX', 'IL', 'MN', 'CO'] as const;
+
+/**
+ * How release-landing-hero is targeted in LaunchDarkly, in evaluation order.
+ * The Release Console uses these names to explain LaunchDarkly's evaluation reason,
+ * which reports a matched rule by its position (ruleIndex). If you reorder the rules
+ * in LaunchDarkly, reorder them here too.
+ */
+export const HERO_TARGETING = {
+  individualTargets: ['qa-tester-001'],
+  rules: [
+    { name: 'Employees', detail: 'email ends with @switchbacksupply.test' },
+    { name: 'Beta shoppers', detail: 'is in segment beta-shoppers (betaTester is true)' },
+    { name: 'Gold members in Central states', detail: `loyaltyTier is gold AND state is one of ${CENTRAL_STATES.join(', ')}` },
+  ],
 } as const;

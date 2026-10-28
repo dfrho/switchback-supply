@@ -5,7 +5,7 @@ import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import SetupNotice from './components/SetupNotice';
 import { LD_CLIENT_SIDE_ID, LD_ENDPOINTS } from './launchdarkly/config';
-import { buildShoppers } from './launchdarkly/contexts';
+import { buildPersonas, toLDContext } from './launchdarkly/contexts';
 import './styles.css';
 
 const root = createRoot(document.getElementById('root')!);
@@ -14,7 +14,7 @@ if (!LD_CLIENT_SIDE_ID) {
   // No client-side ID yet: show setup instructions instead of a broken store.
   root.render(<SetupNotice />);
 } else {
-  const shoppers = buildShoppers();
+  const personas = buildPersonas();
 
   /**
    * createLDReactProvider creates the LaunchDarkly client, starts it, and places it
@@ -26,9 +26,15 @@ if (!LD_CLIENT_SIDE_ID) {
    * own when a component subscribes to change events; setting it explicitly makes
    * the behavior obvious to anyone reading this code.)
    */
-  const LDProvider = createLDReactProvider(LD_CLIENT_SIDE_ID, shoppers.guest.context, {
+  const LDProvider = createLDReactProvider(LD_CLIENT_SIDE_ID, toLDContext(personas.guest.attributes), {
     ldOptions: {
       streaming: true,
+      // Send the shopper's context in the request body, not the URL, so personal
+      // attributes like email never appear in URLs or server logs. In browsers the SDK
+      // then listens on a context-free "ping" stream and fetches values on each ping.
+      useReport: true,
+      // Ask LaunchDarkly why each flag evaluated the way it did (shown in the Release Console).
+      withReasons: true,
       // Keep flag keys exactly as they appear in LaunchDarkly, which also keeps
       // Code References accurate.
       useCamelCaseFlagKeys: false,
@@ -41,7 +47,7 @@ if (!LD_CLIENT_SIDE_ID) {
     <StrictMode>
       <ErrorBoundary>
         <LDProvider>
-          <App shoppers={shoppers} />
+          <App personas={personas} />
         </LDProvider>
       </ErrorBoundary>
     </StrictMode>,

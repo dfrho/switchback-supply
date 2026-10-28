@@ -6,6 +6,8 @@ import { PRODUCTS } from '../data/catalog';
 import { CartProvider, useCart } from '../state/Cart';
 import { ReleaseLogProvider, useReleaseLog } from '../state/ReleaseLog';
 import { ToastProvider } from '../state/Toasts';
+import { ShopperProvider, useShopper } from '../state/Shopper';
+import { buildPersonas } from '../launchdarkly/contexts';
 import CheckoutDrawer from './CheckoutDrawer';
 
 /**
@@ -24,7 +26,21 @@ const ld = vi.hoisted(() => {
     }),
     off: vi.fn((event: string, fn: () => void) => listeners.get(event)?.delete(fn)),
     boolVariation: vi.fn((key: string, fallback: boolean) => flags[key] ?? fallback),
+    getInitializationState: vi.fn(() => 'complete'),
+    // identify() resolves after LaunchDarkly evaluates the new context. Tests set
+    // nextIdentifyFlags to simulate the values LaunchDarkly returns for that shopper.
+    identify: vi.fn(async () => {
+      if (state.nextIdentifyFlags) {
+        for (const [key, value] of Object.entries(state.nextIdentifyFlags)) {
+          flags[key] = value;
+          hookSubscribers.forEach((notify) => notify());
+          listeners.get(`change:${key}`)?.forEach((fn) => fn());
+        }
+      }
+      return { status: 'completed' };
+    }),
   };
+  const state: { nextIdentifyFlags?: Record<string, boolean> } = {};
   return {
     flags,
     hookSubscribers,
@@ -37,6 +53,7 @@ const ld = vi.hoisted(() => {
       listeners.get(`change:${key}`)?.forEach((fn) => fn());
     },
     listenerCount: (event: string) => listeners.get(event)?.size ?? 0,
+    state,
   };
 });
 
@@ -73,16 +90,29 @@ function LogCount() {
   return <output data-testid="log-count">{events.length}</output>;
 }
 
+/** Exposes persona switching to tests. */
+let switchPersona: ((id: 'qa') => Promise<void>) | undefined;
+function PersonaHandle() {
+  const { choosePersona } = useShopper();
+  useEffect(() => {
+    switchPersona = choosePersona;
+  }, [choosePersona]);
+  return null;
+}
+
 function renderDrawer() {
   return render(
     <MemoryRouter>
       <ToastProvider>
         <ReleaseLogProvider>
-          <CartProvider>
-            <OpenWithItem />
-            <CheckoutDrawer />
-            <LogCount />
-          </CartProvider>
+          <ShopperProvider personas={buildPersonas()}>
+            <CartProvider>
+              <OpenWithItem />
+              <CheckoutDrawer />
+              <LogCount />
+              <PersonaHandle />
+            </CartProvider>
+          </ShopperProvider>
         </ReleaseLogProvider>
       </ToastProvider>
     </MemoryRouter>,
@@ -98,6 +128,7 @@ describe('CheckoutDrawer feature flag', () => {
     ld.listeners.clear();
     ld.client.on.mockClear();
     ld.client.off.mockClear();
+    ld.state.nextIdentifyFlags = undefined;
   });
 
   it('serves the Classic checkout when the flag is false', () => {
@@ -141,6 +172,35 @@ describe('CheckoutDrawer feature flag', () => {
     act(() => ld.setFlag(FLAG, false));
     expect(badge()).toHaveTextContent('Classic checkout');
     expect(screen.getByText('Checkout rolled back')).toBeInTheDocument();
+  });
+
+  it('labels a change caused by switching shoppers as a switch, not a release', async () => {
+    ld.flags[FLAG] = false;
+    renderDrawer();
+    ld.state.nextIdentifyFlags = { [FLAG]: true };
+    await act(async () => {
+      await switchPersona!('qa');
+    });
+    expect(badge()).toHaveTextContent('Express checkout');
+    expect(screen.getByText('Shopper switched')).toBeInTheDocument();
+    expect(screen.queryByText('New checkout released')).not.toBeInTheDocument();
+  });
+
+  it('stays quiet when a change event carries the value the shopper already has', () => {
+    ld.flags[FLAG] = false;
+    renderDrawer();
+    act(() => ld.setFlag(FLAG, false));
+    expect(screen.queryByText('Checkout rolled back')).not.toBeInTheDocument();
+    expect(screen.getByTestId('log-count')).toHaveTextContent('0');
+  });
+
+  it('stays quiet while LaunchDarkly is still loading initial values', () => {
+    ld.client.getInitializationState.mockReturnValueOnce('initializing');
+    ld.flags[FLAG] = false;
+    renderDrawer();
+    act(() => ld.setFlag(FLAG, true));
+    expect(screen.queryByText('New checkout released')).not.toBeInTheDocument();
+    expect(badge()).toHaveTextContent('Express checkout');
   });
 
   it('keeps the cart intact across a flag change', () => {

@@ -4,13 +4,50 @@ import { join } from 'node:path';
 
 const MOCK_LD = 'http://localhost:8787';
 export const FLAG = 'release-new-checkout';
+export const HERO_FLAG = 'release-landing-hero';
+
+/**
+ * The README's Part 2 targeting for release-landing-hero, expressed for the mock:
+ * individual target, then three rules in order, then the default rule.
+ */
+export const HERO_TARGETING = {
+  on: true,
+  fallthrough: false,
+  offValue: false,
+  targets: { 'qa-tester-001': true },
+  rules: [
+    { id: 'employees', clauses: [{ attribute: 'email', op: 'endsWith', values: ['@switchbacksupply.test'] }], value: true },
+    { id: 'beta-shoppers', clauses: [{ attribute: 'segment', op: 'segmentMatch', values: ['beta-shoppers'] }], value: true },
+    {
+      id: 'gold-central',
+      clauses: [
+        { attribute: 'loyaltyTier', op: 'in', values: ['gold'] },
+        { attribute: 'state', op: 'in', values: ['TN', 'TX', 'IL', 'MN', 'CO'] },
+      ],
+      value: true,
+    },
+  ],
+};
+export const SEGMENTS = {
+  'beta-shoppers': { rules: [{ clauses: [{ attribute: 'betaTester', op: 'in', values: [true] }] }] },
+};
 
 /** Controls the mock LaunchDarkly server: set flags, target contexts, reset between tests. */
 export class MockLaunchDarkly {
   constructor(private readonly request: APIRequestContext) {}
 
-  async reset(flags: Record<string, unknown> = {}) {
-    await this.request.post(`${MOCK_LD}/__mock/reset`, { data: { flags } });
+  async reset(flags: Record<string, unknown> = {}, segments: Record<string, unknown> = {}) {
+    await this.request.post(`${MOCK_LD}/__mock/reset`, { data: { flags, segments } });
+  }
+
+  /** Every request the SDK made (method and path), to check what travels where. */
+  async requests(): Promise<string[]> {
+    return (await (await this.request.get(`${MOCK_LD}/__mock/state`)).json()).requests;
+  }
+
+  /** Analytics event payloads the SDK sent, as raw JSON strings. */
+  async eventPayloads(): Promise<string[]> {
+    return (await (await this.request.get(`${MOCK_LD}/__mock/events`)).json()).payloads;
   }
 
   /** Change a flag's value for everyone, like saving the default rule in LaunchDarkly. */
@@ -108,14 +145,14 @@ export async function addToPack(page: Page, p: Product, opts: { size?: string; c
 
 /** Fill and submit the Classic checkout's shipping and payment steps. */
 export async function completeClassicDetails(page: Page) {
-  await page.getByLabel('Full name').fill('Avery Reviewer');
-  await page.getByLabel('Street').fill('100 Main St');
-  await page.getByLabel('City').fill('Nashville');
-  await page.getByLabel('State').fill('TN');
-  await page.getByLabel('ZIP').fill('37203');
+  await drawer(page).getByLabel('Full name').fill('Avery Reviewer');
+  await drawer(page).getByLabel('Street').fill('100 Main St');
+  await drawer(page).getByLabel('City').fill('Nashville');
+  await drawer(page).getByLabel('State').fill('TN');
+  await drawer(page).getByLabel('ZIP').fill('37203');
   await page.getByRole('button', { name: 'Continue to payment' }).click();
-  await page.getByLabel('Card number').fill('4242 4242 4242 4242');
-  await page.getByLabel('Expiry').fill('12 / 30');
-  await page.getByLabel('CVC').fill('123');
+  await drawer(page).getByLabel('Card number').fill('4242 4242 4242 4242');
+  await drawer(page).getByLabel('Expiry').fill('12 / 30');
+  await drawer(page).getByLabel('CVC').fill('123');
   await page.getByRole('button', { name: 'Continue to review' }).click();
 }

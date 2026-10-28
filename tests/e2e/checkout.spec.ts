@@ -6,26 +6,26 @@ test.describe('Classic checkout (flag off)', () => {
   test('starts with empty fields and blocks an incomplete step', async ({ page }) => {
     await addToPack(page, product('canyon-bottle'));
     for (const label of ['Full name', 'Street', 'City', 'State', 'ZIP']) {
-      await expect(page.getByLabel(label)).toHaveValue('');
+      await expect(drawer(page).getByLabel(label)).toHaveValue('');
     }
     await page.getByRole('button', { name: 'Continue to payment' }).click();
     await expect(page.getByText('Enter your full name')).toBeVisible();
     await expect(page.getByText('Enter a 5-digit ZIP code')).toBeVisible();
-    await expect(page.getByLabel('Full name')).toBeFocused();
+    await expect(drawer(page).getByLabel('Full name')).toBeFocused();
     await expect(page.getByRole('button', { name: 'Continue to payment' })).toBeVisible();
   });
 
   test('rejects an expired card', async ({ page }) => {
     await addToPack(page, product('canyon-bottle'));
-    await page.getByLabel('Full name').fill('Avery Reviewer');
-    await page.getByLabel('Street').fill('100 Main St');
-    await page.getByLabel('City').fill('Nashville');
-    await page.getByLabel('State').fill('TN');
-    await page.getByLabel('ZIP').fill('37203');
+    await drawer(page).getByLabel('Full name').fill('Avery Reviewer');
+    await drawer(page).getByLabel('Street').fill('100 Main St');
+    await drawer(page).getByLabel('City').fill('Nashville');
+    await drawer(page).getByLabel('State').fill('TN');
+    await drawer(page).getByLabel('ZIP').fill('37203');
     await page.getByRole('button', { name: 'Continue to payment' }).click();
-    await page.getByLabel('Card number').fill('4242 4242 4242 4242');
-    await page.getByLabel('Expiry').fill('01 / 20');
-    await page.getByLabel('CVC').fill('123');
+    await drawer(page).getByLabel('Card number').fill('4242 4242 4242 4242');
+    await drawer(page).getByLabel('Expiry').fill('01 / 20');
+    await drawer(page).getByLabel('CVC').fill('123');
     await page.getByRole('button', { name: 'Continue to review' }).click();
     await expect(page.getByText('This card has expired')).toBeVisible();
   });
@@ -48,9 +48,9 @@ test.describe('Classic checkout (flag off)', () => {
     await addToPack(page, product('canyon-bottle'));
     await completeClassicDetails(page);
     await page.getByRole('button', { name: 'Back' }).click();
-    await expect(page.getByLabel('Card number')).toHaveValue('4242 4242 4242 4242');
+    await expect(drawer(page).getByLabel('Card number')).toHaveValue('4242 4242 4242 4242');
     await page.getByRole('button', { name: 'Back' }).click();
-    await expect(page.getByLabel('Full name')).toHaveValue('Avery Reviewer');
+    await expect(drawer(page).getByLabel('Full name')).toHaveValue('Avery Reviewer');
   });
 
   test('charges $8 shipping under $150 and ships free at $150 and over', async ({ page }) => {

@@ -15,6 +15,7 @@
     "typecheck": "npm run typecheck --workspace web && tsc -p tests",
     "lint": "npm run lint --workspace web",
     "remediate": "bash scripts/remediate.sh",
+    "ld:setup": "node scripts/ld-setup.mjs",
     "validate:catalog": "node scripts/validate-catalog.mjs",
     "catalog": "python3 scripts/catalog-source.py",
     "test": "npm run test --workspace web",

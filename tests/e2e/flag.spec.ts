@@ -12,6 +12,9 @@ test.describe('release-new-checkout flag @smoke', () => {
     await ld.reset({ [FLAG]: false });
     await page.goto('/');
     await waitForStreaming(page);
+    // Loading flag values is not a release or a rollback: nothing is announced.
+    await expect(page.getByRole('status').getByText(/released|rolled back/)).toHaveCount(0);
+    await expect(releaseConsole(page).getByText('Toggle the flag in LaunchDarkly')).toBeVisible();
     await addToPack(page, bottle);
     await expect(checkoutBadge(page)).toHaveText('Classic checkout');
     await expect(drawer(page).getByRole('button', { name: 'Continue to payment' })).toBeVisible();
@@ -73,12 +76,15 @@ test.describe('test in production with individual targeting', () => {
     await addToPack(page, product('canyon-bottle'));
     await expect(checkoutBadge(page)).toHaveText('Classic checkout');
 
+    await openReleaseConsole(page);
     const panel = releaseConsole(page);
-    await panel.getByRole('radio', { name: 'Internal QA tester' }).click();
-    await expect(panel.getByText('key: qa-tester-001')).toBeVisible();
+    await panel.getByLabel('Persona').selectOption('qa');
+    await expect(panel.getByTestId('context-key')).toContainText('key: qa-tester-001');
     await expect(checkoutBadge(page)).toHaveText('Express checkout');
+    // A shopper switch is labeled as such, never as a release.
+    await expect(panel.getByText('Shopper switched: Express checkout')).toBeVisible();
 
-    await panel.getByRole('radio', { name: 'Guest shopper' }).click();
+    await panel.getByLabel('Persona').selectOption('guest');
     await expect(checkoutBadge(page)).toHaveText('Classic checkout');
   });
 });
