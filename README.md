@@ -33,7 +33,7 @@ A working outdoor gear store: 25 products across six categories, each with a pro
 | `false` (default, and the fallback if LaunchDarkly is unreachable) | **Classic checkout**: three steps (shipping, payment, review) |
 | `true` | **Express checkout**: one page, saved address and card, one-tap order |
 
-A **Release Console** in the bottom-left corner shows the SDK connection status, the flag's live value, who the SDK thinks you are, and a timestamped log written by the flag change listener. It exists only to make LaunchDarkly visible during a demo.
+A **Release Console** in the bottom-left corner shows the SDK connection status, the flag's live value, who the SDK thinks you are, and a timestamped log written by the flag change listener. It starts collapsed so it never covers the store; click it to expand, and it remembers your choice. It exists only to make LaunchDarkly visible during a demo.
 
 ---
 
@@ -132,7 +132,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). The Release Console should show **SDK: Streaming**.
+Open [http://localhost:5173](http://localhost:5173). Click the **Release Console** in the bottom-left corner to expand it; it should show **SDK: Streaming**.
 
 ---
 
@@ -233,6 +233,32 @@ A manual trigger is the first step on a remediation ladder that enterprise teams
 
 ---
 
+## Testing
+
+Two layers of automated tests run on every pull request.
+
+| Layer | Tool | What it proves |
+|---|---|---|
+| Unit and component (49 tests) | Vitest + React Testing Library | Checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, and the flagged checkout drawer: Classic for `false`, Express for `true`, the fallback when LaunchDarkly has no value, a live swap with toast and log when the flag changes, and listener cleanup on unmount |
+| End to end (48 tests) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus the flag: **release and roll back mid-checkout with no page reload**, individual targeting for the QA tester, and the fallback when LaunchDarkly is unreachable |
+
+### How the flag is tested without a LaunchDarkly account
+
+The end-to-end tests run the real LaunchDarkly React SDK against a small local mock of LaunchDarkly's client-side endpoints (`tests/mock-launchdarkly/server.mjs`). It speaks the same streaming protocol, a `put` event with every flag and a `patch` event for each change, so a test can open the checkout drawer, "save" a new flag value, and watch the drawer swap. The app is pointed at the mock with three optional settings, `VITE_LD_BASE_URI`, `VITE_LD_STREAM_URI`, and `VITE_LD_EVENTS_URI`. Those are the same settings a customer uses to route the SDK through a [LaunchDarkly Relay Proxy](https://launchdarkly.com/docs/sdk/relay-proxy); leave them blank to connect to LaunchDarkly directly.
+
+Every test runs against the Vite dev server, where React's StrictMode surfaces effect and cleanup bugs. The release-critical tests (tagged `@smoke`) also run against an optimized production build.
+
+### Running the tests
+
+```bash
+npm test                          # unit and component tests (about 10 seconds)
+npx playwright install chromium   # first time only: downloads the test browser
+npm run test:e2e                  # end-to-end tests (about 3 minutes); starts its own servers
+npm run test:e2e:ui               # the same, in Playwright's interactive UI
+```
+
+The end-to-end tests never contact real LaunchDarkly and do not use your `.env` keys. They need ports 5180, 5181, and 8787 free.
+
 ## Troubleshooting
 
 | Symptom | Likely cause and fix |
@@ -261,7 +287,10 @@ switchback-supply/
   scripts/catalog-source.py     Product copy, prices, and variants; generates data/catalog.json
   scripts/validate-catalog.mjs  Catalog checks run in CI
   vercel.json                   Build settings and single-page app routing for Vercel
-  .github/workflows/ci.yml    Typecheck, lint, build, and a committed-secrets guard
+  tests/e2e/                  Playwright end-to-end tests
+  tests/mock-launchdarkly/    Local mock of LaunchDarkly's client-side endpoints for tests
+  playwright.config.ts        End-to-end setup: mock server, dev server, production build
+  .github/workflows/ci.yml    Catalog check, typecheck, lint, unit tests, build, secrets guard, end-to-end tests
   .env.example                Configuration template
 ```
 
@@ -274,6 +303,8 @@ switchback-supply/
 | `npm run typecheck` | TypeScript check only |
 | `npm run lint` | Lint with oxlint |
 | `npm run remediate -- "label"` | Turn the checkout flag off through its trigger |
+| `npm test` | Unit and component tests |
+| `npm run test:e2e` | End-to-end tests in Chromium (run `npx playwright install chromium` once first) |
 | `npm run catalog` | Regenerate `data/catalog.json` from `scripts/catalog-source.py` (needs Python 3) |
 | `npm run validate:catalog` | Check the catalog for duplicate SKUs, bad prices, and missing images |
 

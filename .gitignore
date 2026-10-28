@@ -13,3 +13,6 @@ dist/
 .DS_Store
 *.log
 coverage/
+dist-e2e/
+test-results/
+playwright-report/
