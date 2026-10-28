@@ -123,7 +123,13 @@ export default function CheckoutDrawer() {
             <ul className="line-items">
               {lines.map((l) => (
                 <li key={l.sku} className="line-item">
-                  <Link to={`/products/${l.product.id}`} onClick={handleClose} className="line-item__thumb">
+                  <Link
+                    to={`/products/${l.product.id}`}
+                    onClick={handleClose}
+                    className="line-item__thumb"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  >
                     <ProductImage product={l.product} />
                   </Link>
                   <div className="line-item__info">

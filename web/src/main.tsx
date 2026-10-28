@@ -4,7 +4,7 @@ import { createLDReactProvider } from '@launchdarkly/react-sdk';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import SetupNotice from './components/SetupNotice';
-import { LD_CLIENT_SIDE_ID } from './launchdarkly/config';
+import { LD_CLIENT_SIDE_ID, LD_ENDPOINTS } from './launchdarkly/config';
 import { buildShoppers } from './launchdarkly/contexts';
 import './styles.css';
 
@@ -32,6 +32,8 @@ if (!LD_CLIENT_SIDE_ID) {
       // Keep flag keys exactly as they appear in LaunchDarkly, which also keeps
       // Code References accurate.
       useCamelCaseFlagKeys: false,
+      // Optional Relay Proxy or test endpoints; unset values fall back to LaunchDarkly's defaults.
+      ...Object.fromEntries(Object.entries(LD_ENDPOINTS).filter(([, uri]) => uri)),
     },
   });
 

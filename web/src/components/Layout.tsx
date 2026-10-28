@@ -50,7 +50,7 @@ export default function Layout({ shoppers }: Props) {
             </Link>
           ))}
         </nav>
-        <button className="cart-btn" onClick={openCart}>
+        <button className="cart-btn" onClick={openCart} aria-label={`Open your pack, ${count} ${count === 1 ? 'item' : 'items'}`}>
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path
               d="M7 8V6a5 5 0 0 1 10 0v2M4 8h16l-1.2 12.2a2 2 0 0 1-2 1.8H7.2a2 2 0 0 1-2-1.8Z"
@@ -61,7 +61,7 @@ export default function Layout({ shoppers }: Props) {
             />
           </svg>
           <span className="cart-btn__label">Pack</span>
-          <span className="cart-btn__count" aria-label={`${count} items`}>
+          <span className="cart-btn__count" aria-hidden="true">
             {count}
           </span>
         </button>

@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
  * and a timestamped log written by the checkout's flag change listener.
  */
 export default function ReleaseConsole({ shoppers, activeShopper, onShopperChange }: Props) {
-  // Remember whether the console is open. Default: open on desktop, closed on phones.
+  // Remember whether the console is open. Default: collapsed, so it never covers the store.
   const [expanded, setExpandedState] = useState<boolean>(() => {
     try {
       const saved = window.localStorage.getItem(CONSOLE_KEY);
@@ -33,7 +33,7 @@ export default function ReleaseConsole({ shoppers, activeShopper, onShopperChang
     } catch {
       // Storage unavailable: fall through to the default.
     }
-    return window.innerWidth > 720;
+    return false;
   });
   const setExpanded = (open: boolean) => {
     setExpandedState(open);

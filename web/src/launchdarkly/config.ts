@@ -13,6 +13,17 @@
 export const LD_CLIENT_SIDE_ID: string = import.meta.env.VITE_LD_CLIENT_SIDE_ID ?? '';
 
 /**
+ * Optional service endpoints. Leave these unset to talk to LaunchDarkly directly.
+ * Set them to route the SDK through a LaunchDarkly Relay Proxy (common in enterprise
+ * networks) or, in this repo's end-to-end tests, a local mock LaunchDarkly server.
+ */
+export const LD_ENDPOINTS = {
+  baseUri: import.meta.env.VITE_LD_BASE_URI || undefined,
+  streamUri: import.meta.env.VITE_LD_STREAM_URI || undefined,
+  eventsUri: import.meta.env.VITE_LD_EVENTS_URI || undefined,
+};
+
+/**
  * Flag keys used by the app. Each one must exist in your LaunchDarkly project
  * with "Available on client-side SDKs" turned on, or the SDK silently serves
  * the fallback value.

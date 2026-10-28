@@ -1196,9 +1196,13 @@ a {
   color: var(--paper);
   border-radius: 16px;
   box-shadow: var(--shadow);
-  z-index: 30;
+  /* Above the checkout drawer and its backdrop, so presenters can switch shoppers mid-checkout. */
+  z-index: 60;
   font-size: 0.85rem;
   overflow: hidden;
+}
+.console:not(.console--open) {
+  width: auto;
 }
 .console__toggle {
   width: 100%;

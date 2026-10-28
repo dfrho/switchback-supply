@@ -12,10 +12,16 @@
   "scripts": {
     "dev": "npm run dev --workspace web",
     "build": "npm run build --workspace web",
-    "typecheck": "npm run typecheck --workspace web",
+    "typecheck": "npm run typecheck --workspace web && tsc -p tests",
     "lint": "npm run lint --workspace web",
     "remediate": "bash scripts/remediate.sh",
     "validate:catalog": "node scripts/validate-catalog.mjs",
-    "catalog": "python3 scripts/catalog-source.py"
+    "catalog": "python3 scripts/catalog-source.py",
+    "test": "npm run test --workspace web",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
   }
 }
