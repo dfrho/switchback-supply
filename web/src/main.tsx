@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createLDReactProvider } from '@launchdarkly/react-sdk';
 import App from './App';
+import ErrorBoundary from './components/ErrorBoundary';
 import SetupNotice from './components/SetupNotice';
 import { LD_CLIENT_SIDE_ID } from './launchdarkly/config';
 import { buildShoppers } from './launchdarkly/contexts';
@@ -36,9 +37,11 @@ if (!LD_CLIENT_SIDE_ID) {
 
   root.render(
     <StrictMode>
-      <LDProvider>
-        <App shoppers={shoppers} />
-      </LDProvider>
+      <ErrorBoundary>
+        <LDProvider>
+          <App shoppers={shoppers} />
+        </LDProvider>
+      </ErrorBoundary>
     </StrictMode>,
   );
 }

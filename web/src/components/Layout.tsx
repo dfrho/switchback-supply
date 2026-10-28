@@ -14,7 +14,10 @@ interface Props {
 /** Scroll to the top on page changes, like a traditional site. */
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  useEffect(() => {
+    // Braces matter: newer browsers return a value from scrollTo, and an effect may only return a cleanup function.
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return null;
 }
 
