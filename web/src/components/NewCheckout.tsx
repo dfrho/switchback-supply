@@ -1,4 +1,4 @@
-import { formatPrice } from '../data/products';
+import { formatPrice, shippingFor } from '../data/catalog';
 
 interface Props {
   subtotal: number;
@@ -14,7 +14,7 @@ interface Props {
  * without adding risk.
  */
 export default function NewCheckout({ subtotal, onPlaced }: Props) {
-  const shipping = subtotal >= 150 ? 0 : 8;
+  const shipping = shippingFor(subtotal);
 
   return (
     <div className="express">

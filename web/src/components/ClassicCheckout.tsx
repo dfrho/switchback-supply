@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatPrice } from '../data/products';
+import { formatPrice, shippingFor } from '../data/catalog';
 
 interface Props {
   subtotal: number;
@@ -15,7 +15,8 @@ const STEPS = ['Shipping', 'Payment', 'Review'] as const;
  */
 export default function ClassicCheckout({ subtotal, onPlaced }: Props) {
   const [step, setStep] = useState(0);
-  const shipping = 8;
+  // Same shipping rule as Express checkout: the flag changes the experience, not the price.
+  const shipping = shippingFor(subtotal);
 
   return (
     <div className="classic">
@@ -80,7 +81,7 @@ export default function ClassicCheckout({ subtotal, onPlaced }: Props) {
             <dt>Subtotal</dt>
             <dd>{formatPrice(subtotal)}</dd>
             <dt>Ground shipping</dt>
-            <dd>{formatPrice(shipping)}</dd>
+            <dd>{shipping === 0 ? 'Free' : formatPrice(shipping)}</dd>
             <dt className="totals__grand">Total</dt>
             <dd className="totals__grand">{formatPrice(subtotal + shipping)}</dd>
           </dl>

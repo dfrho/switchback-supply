@@ -6,7 +6,8 @@ Switchback Supply plays the role of "ABC Company" from the exercise brief. Each 
 
 | Section | Persona | What it shows | Status |
 |---|---|---|---|
-| **Part 1: Release and Remediate** | Engineering manager | Flag-wrapped checkout, live listener, test in production, flag trigger remediation | This README |
+| Storefront | All | 25-product catalog with color and size variants, product pages, a persistent cart | Done |
+| **Part 1: Release and Remediate** | Engineering manager | Flag-wrapped checkout, live listener, test in production, flag trigger remediation | Done |
 | Part 2: Target | Developer | Landing page component, contexts with attributes, individual and rule-based targeting | Next |
 | Extra credit 1 | Engineering manager | Observability plus a guarded rollout that rolls itself back | Planned |
 | Extra credit 2 | AI product manager | AgentControl (AI Configs) shopping assistant on Anthropic Claude | Planned |
@@ -25,7 +26,7 @@ Competitors are catching up, and leadership wants features shipped faster. Switc
 
 ### What you will see
 
-The storefront's checkout is wrapped in one boolean feature flag, `release-new-checkout`:
+A working outdoor gear store: 25 products across six categories, each with a product page, color and size pickers, live stock levels, and a cart that survives a page refresh. The store's checkout is wrapped in one boolean feature flag, `release-new-checkout`:
 
 | Flag value | Checkout shoppers get |
 |---|---|
@@ -139,7 +140,7 @@ Open [http://localhost:5173](http://localhost:5173). The Release Console should 
 
 Keep LaunchDarkly open in one window and the storefront in another, side by side.
 
-**1. Test in production.** Add a couple of items, open the pack (cart), and confirm you see **Classic checkout**. In the Release Console, switch **Shopping as** to **Internal QA tester**. The drawer swaps to **Express checkout**, with no reload. Switch back to Guest: Classic again. Same production code, two audiences. *(Requires Step 5.)*
+**1. Test in production.** Open any product, pick a size, and click **Add to pack**. The checkout drawer opens; confirm you see **Classic checkout**. In the Release Console, switch **Shopping as** to **Internal QA tester**. The drawer swaps to **Express checkout**, with no reload. Switch back to Guest: Classic again. Same production code, two audiences. *(Requires Step 5.)*
 
 **2. Release.** In LaunchDarkly, set the default rule to serve **true** and save. Within a moment, every shopper gets Express checkout. A toast announces the release and the listener log records it.
 
@@ -207,6 +208,8 @@ A `POST` to the Generic trigger URL with an optional JSON body (`eventName`, `ur
 | Flag key or fallback value | `web/src/launchdarkly/config.ts` |
 | Client-side ID | `.env` (`VITE_LD_CLIENT_SIDE_ID`) |
 | QA tester key | `web/src/launchdarkly/contexts.ts` |
+| Products, prices, colors, sizes | `scripts/catalog-source.py`, then run `npm run catalog` |
+| Product photos | Add `web/public/products/<product-id>.webp`, then run `npm run catalog` |
 | Trigger URL | `.env` (`LD_TRIGGER_URL_CHECKOUT_OFF`) |
 
 ---
@@ -237,12 +240,18 @@ A manual trigger is the first step on a remediation ladder that enterprise teams
 
 ```
 switchback-supply/
-  web/                        React 19 + Vite + TypeScript storefront
-    src/main.tsx              LaunchDarkly provider setup
-    src/launchdarkly/         Flag keys, fallbacks, and contexts
-    src/components/           Storefront, checkout variants, Release Console
-    src/state/                Cart, toasts, and the listener log
-  scripts/remediate.sh        Calls the flag trigger (Part 1 remediation)
+  data/catalog.json             25 products, 109 SKUs (generated; shared with the server later)
+  web/                          React 19 + Vite + TypeScript storefront
+    src/main.tsx                LaunchDarkly provider setup
+    src/launchdarkly/           Flag keys, fallbacks, and contexts
+    src/pages/                  Home, shop, product page, not found
+    src/components/             Layout, product cards, checkout variants, Release Console
+    src/state/                  Cart (persisted by SKU), toasts, and the listener log
+    public/products/            Product photos (WebP, 800 x 800)
+  scripts/remediate.sh          Calls the flag trigger (Part 1 remediation)
+  scripts/catalog-source.py     Product copy, prices, and variants; generates data/catalog.json
+  scripts/validate-catalog.mjs  Catalog checks run in CI
+  vercel.json                   Build settings and single-page app routing for Vercel
   .github/workflows/ci.yml    Typecheck, lint, build, and a committed-secrets guard
   .env.example                Configuration template
 ```
@@ -256,6 +265,8 @@ switchback-supply/
 | `npm run typecheck` | TypeScript check only |
 | `npm run lint` | Lint with oxlint |
 | `npm run remediate -- "label"` | Turn the checkout flag off through its trigger |
+| `npm run catalog` | Regenerate `data/catalog.json` from `scripts/catalog-source.py` (needs Python 3) |
+| `npm run validate:catalog` | Check the catalog for duplicate SKUs, bad prices, and missing images |
 
 ## LaunchDarkly documentation used
 
@@ -265,6 +276,10 @@ switchback-supply/
 - [Individual targeting](https://launchdarkly.com/docs/home/flags/individual-targeting)
 - [Anonymous contexts](https://launchdarkly.com/docs/sdk/features/anonymous) and [Identifying contexts](https://launchdarkly.com/docs/sdk/features/identify)
 - [Kill switch flags](https://launchdarkly.com/docs/home/flags/killswitch) and [Guarded rollouts](https://launchdarkly.com/docs/home/releases/guarded-rollouts)
+
+## About the catalog
+
+Switchback Supply and every product are fictional. Product photos were generated with Leonardo.ai from prompts that exclude logos and text, then converted to 800 x 800 WebP (about 30 KB each). Prices, specs, and stock levels are invented. A few SKUs are deliberately sold out or low in stock, so product pages show real availability states. Both checkouts use the same shipping rule (free over $150, otherwise $8), so the feature flag changes the experience, never the price.
 
 ## How this was built
 
