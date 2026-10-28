@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { useBoolVariation, useLDClient } from '@launchdarkly/react-sdk';
 import { FALLBACKS, FLAGS } from '../launchdarkly/config';
 import { useReleaseLog } from '../state/ReleaseLog';
@@ -6,12 +7,8 @@ import { useToast } from '../state/Toasts';
 import { useCart } from '../state/Cart';
 import ClassicCheckout from './ClassicCheckout';
 import NewCheckout from './NewCheckout';
-import { formatPrice } from '../data/products';
-
-interface Props {
-  open: boolean;
-  onClose: () => void;
-}
+import ProductImage from './ProductImage';
+import { formatPrice } from '../data/catalog';
 
 /**
  * PART 1: RELEASE AND REMEDIATE
@@ -20,10 +17,10 @@ interface Props {
  *   true  -> the redesigned one-page Express checkout (the new feature)
  *   false -> the Classic three-step checkout (the known-good fallback)
  *
- * The drawer stays mounted even while closed, so its flag listener is always
- * active and every change shows up in the toast and the Release Console.
+ * The drawer is mounted on every page, even while closed, so its flag listener
+ * is always active and every change shows up in the toast and the Release Console.
  */
-export default function CheckoutDrawer({ open, onClose }: Props) {
+export default function CheckoutDrawer() {
   // 1. RELEASE: useBoolVariation returns the live flag value and re-renders this
   //    component whenever the flag changes. LaunchDarkly pushes the change over
   //    the streaming connection, so the swap happens with no page reload.
@@ -62,7 +59,7 @@ export default function CheckoutDrawer({ open, onClose }: Props) {
     return () => ldClient.off(`change:${FLAGS.newCheckout}`, handleCheckoutFlagChange);
   }, [ldClient, showToast, logEvent]);
 
-  const { lines, subtotal, remove, clear } = useCart();
+  const { lines, subtotal, count, isOpen, closeCart, setQuantity, remove, clear } = useCart();
   const [confirmation, setConfirmation] = useState<string | null>(null);
 
   const handlePlaced = (orderId: string) => {
@@ -72,21 +69,24 @@ export default function CheckoutDrawer({ open, onClose }: Props) {
 
   const handleClose = () => {
     setConfirmation(null);
-    onClose();
+    closeCart();
   };
+
+  // Close on Escape.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeCart();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, closeCart]);
 
   return (
     <>
-      <div className={`scrim ${open ? 'scrim--open' : ''}`} onClick={handleClose} aria-hidden="true" />
-      <aside
-        className={`drawer ${open ? 'drawer--open' : ''}`}
-        aria-label="Checkout"
-        aria-hidden={!open}
-        inert={!open}
-      >
+      <div className={`scrim ${isOpen ? 'scrim--open' : ''}`} onClick={handleClose} aria-hidden="true" />
+      <aside className={`drawer ${isOpen ? 'drawer--open' : ''}`} aria-label="Checkout" aria-hidden={!isOpen} inert={!isOpen}>
         <header className="drawer__head">
           <div>
-            <p className="eyebrow">Your pack list</p>
+            <p className="eyebrow">Your pack {count > 0 && `· ${count} ${count === 1 ? 'item' : 'items'}`}</p>
             <h2 className="drawer__title">Checkout</h2>
           </div>
           <span className={`variant-tag ${showNewCheckout ? 'variant-tag--new' : ''}`}>
@@ -104,8 +104,8 @@ export default function CheckoutDrawer({ open, onClose }: Props) {
             <p className="eyebrow">Order placed</p>
             <h3 className="confirm__title">See you on the trail.</h3>
             <p className="confirm__body">
-              Order <strong>{confirmation}</strong> is packed and ready to ship. This is a demo store, so no
-              payment was taken.
+              Order <strong>{confirmation}</strong> is packed and ready to ship. This is a demo store, so no payment was
+              taken.
             </p>
             <button className="btn btn--primary" onClick={handleClose}>
               Keep browsing
@@ -113,22 +113,48 @@ export default function CheckoutDrawer({ open, onClose }: Props) {
           </div>
         ) : lines.length === 0 ? (
           <div className="empty">
-            <p>Your pack is empty. Add some gear to try checkout.</p>
+            <p>Your pack is empty.</p>
+            <Link className="btn btn--primary" to="/shop" onClick={handleClose}>
+              Shop the trail kit
+            </Link>
           </div>
         ) : (
           <>
             <ul className="line-items">
               {lines.map((l) => (
-                <li key={l.product.id} className="line-item">
-                  <span className="line-item__swatch" style={{ background: l.product.tone }} />
-                  <span className="line-item__name">
-                    {l.product.name}
-                    <small>Qty {l.quantity}</small>
-                  </span>
+                <li key={l.sku} className="line-item">
+                  <Link to={`/products/${l.product.id}`} onClick={handleClose} className="line-item__thumb">
+                    <ProductImage product={l.product} />
+                  </Link>
+                  <div className="line-item__info">
+                    <Link to={`/products/${l.product.id}`} onClick={handleClose} className="line-item__name">
+                      {l.product.name}
+                    </Link>
+                    <span className="line-item__variant">
+                      <span className="swatch-dot" style={{ background: l.variant.colorHex }} />
+                      {l.variant.color}
+                      {l.variant.size && ` · Size ${l.variant.size}`}
+                    </span>
+                    <div className="line-item__controls">
+                      <div className="qty qty--small" aria-label={`Quantity for ${l.product.name}`}>
+                        <button onClick={() => setQuantity(l.sku, l.quantity - 1)} aria-label="Decrease quantity">
+                          -
+                        </button>
+                        <span>{l.quantity}</span>
+                        <button
+                          onClick={() => setQuantity(l.sku, l.quantity + 1)}
+                          disabled={l.quantity >= l.variant.stock}
+                          aria-label="Increase quantity"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <button className="link-btn" onClick={() => remove(l.sku)}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                   <span className="line-item__price">{formatPrice(l.product.price * l.quantity)}</span>
-                  <button className="link-btn" onClick={() => remove(l.product.id)}>
-                    Remove
-                  </button>
                 </li>
               ))}
             </ul>

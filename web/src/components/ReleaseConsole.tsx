@@ -10,6 +10,8 @@ interface Props {
   onShopperChange: (id: ShopperId) => void;
 }
 
+const CONSOLE_KEY = 'switchback.console';
+
 const STATUS_LABEL: Record<string, string> = {
   initializing: 'Connecting',
   complete: 'Streaming',
@@ -23,7 +25,24 @@ const STATUS_LABEL: Record<string, string> = {
  * and a timestamped log written by the checkout's flag change listener.
  */
 export default function ReleaseConsole({ shoppers, activeShopper, onShopperChange }: Props) {
-  const [expanded, setExpanded] = useState(true);
+  // Remember whether the console is open. Default: open on desktop, closed on phones.
+  const [expanded, setExpandedState] = useState<boolean>(() => {
+    try {
+      const saved = window.localStorage.getItem(CONSOLE_KEY);
+      if (saved !== null) return saved === 'open';
+    } catch {
+      // Storage unavailable: fall through to the default.
+    }
+    return window.innerWidth > 720;
+  });
+  const setExpanded = (open: boolean) => {
+    setExpandedState(open);
+    try {
+      window.localStorage.setItem(CONSOLE_KEY, open ? 'open' : 'closed');
+    } catch {
+      // Ignore: the preference just will not persist.
+    }
+  };
   const [switching, setSwitching] = useState(false);
   const ldClient = useLDClient();
   const { status } = useInitializationStatus();
