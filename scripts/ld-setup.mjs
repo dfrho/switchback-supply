@@ -118,8 +118,19 @@ async function main() {
   }
   // An environment's _id is its client-side ID: check the app talks to this environment.
   if (CLIENT_SIDE_ID && environment._id !== CLIENT_SIDE_ID) {
-    console.warn(`  Warning: the app's VITE_LD_CLIENT_SIDE_ID belongs to a different environment than "${ENVIRONMENT}".`);
-    console.warn('  The targeting will be applied, but the app will not see it. Set LD_ENVIRONMENT_KEY to match.');
+    // Client-side IDs begin with a creation timestamp, so environments created together
+    // share the same first characters. Name the environment the ID really belongs to.
+    const all = await getOrNull(`/projects/${PROJECT}/environments`);
+    const owner = all?.items?.find((e) => e._id === CLIENT_SIDE_ID);
+    console.error(`  The app's VITE_LD_CLIENT_SIDE_ID does not belong to "${ENVIRONMENT}".`);
+    console.error(
+      owner
+        ? `  It belongs to "${owner.name}". Set LD_ENVIRONMENT_KEY=${owner.key} in .env and run this again.`
+        : `  It belongs to no environment in project "${PROJECT}". Check LD_PROJECT_KEY and VITE_LD_CLIENT_SIDE_ID.`,
+    );
+    console.error('  Nothing was changed, because the app would not see these changes.');
+    console.error('  (Environments created together have IDs that start with the same characters; compare the whole ID.)');
+    process.exit(1);
   } else {
     console.log(`  Found "${environment.name}"${CLIENT_SIDE_ID ? ', and it matches the app\'s client-side ID' : ''}.`);
   }

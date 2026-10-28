@@ -392,6 +392,8 @@ The end-to-end tests never contact real LaunchDarkly and do not use your `.env` 
 | The console names the wrong rule | The rule order in LaunchDarkly differs from `HERO_TARGETING` in `web/src/launchdarkly/config.ts`; make them match. |
 | An attribute is missing from a dashboard dropdown | LaunchDarkly lists only attributes it has received. Switch personas in the Release Console and wait for **Contexts** to update, or use `npm run ld:setup`. |
 | Contexts and Live events stay empty, but flags work | Analytics events are being blocked. In DevTools > Network, requests to `events.launchdarkly.com` show `(blocked:other)` when a browser extension or Brave Shields blocks them. Allow the domain or use a clean browser profile. Flags keep working, because evaluation does not depend on events. |
+| `npm run ld:setup` says the client-side ID belongs to another environment | Your app is connected to the environment it names. Set `LD_ENVIRONMENT_KEY` to that key, or copy the other environment's client-side ID into `.env`. Environments created at the same time have IDs that start with the same characters, so compare the whole ID. |
+| Every persona gets the default rule | The app's client-side ID belongs to a different environment than the one you configured. `npm run ld:setup` detects this. |
 | `npm run ld:setup` fails with HTTP 401 or 403 | The API token is missing, invalid, or lacks the Writer role. |
 | `npm run remediate` fails with HTTP 404 | The trigger was reset or deleted. Create or reset it and update `.env`. |
 
