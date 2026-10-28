@@ -138,21 +138,30 @@ Open [http://localhost:5173](http://localhost:5173). The Release Console should 
 
 ## Demo walkthrough (about 3 minutes)
 
-Keep LaunchDarkly open in one window and the storefront in another, side by side.
+Put LaunchDarkly and the storefront side by side. Start with `release-new-checkout` turned **Off**.
 
-**1. Test in production.** Open any product, pick a size, and click **Add to pack**. The checkout drawer opens; confirm you see **Classic checkout**. Its fields start empty and are validated at each step; use the test card `4242 4242 4242 4242` with any future expiry. Nothing you type leaves the browser. In the Release Console, switch **Shopping as** to **Internal QA tester**. The drawer swaps to **Express checkout**, with no reload. Switch back to Guest: Classic again. Same production code, two audiences. *(Requires Step 5.)*
+| Flag value | Checkout inside the drawer |
+|---|---|
+| `false` (also the fallback if LaunchDarkly is unreachable) | **Classic checkout**: three steps (Shipping, Payment, Review) with empty, validated fields |
+| `true` | **Express checkout**: one page with a saved address and card, and one-tap ordering |
 
-**2. Release.** In LaunchDarkly, set the default rule to serve **true** and save. Within a moment, every shopper gets Express checkout. A toast announces the release and the listener log records it.
+The badge in the drawer's header always shows which checkout is live.
 
-**3. Roll back from the dashboard.** Turn the flag **Off**. Everyone is instantly back on Classic checkout.
+**1. Open checkout.** Open any product, pick a size, and click **Add to pack**. The checkout drawer slides in showing **Classic checkout**. **Leave the drawer open** for the rest of the demo; the point is that the swap happens mid-checkout. (To place a Classic order, use the test card `4242 4242 4242 4242` with any future expiry. Nothing you type leaves the browser.)
 
-**4. Remediate from the command line.** Turn the flag back **On**, then simulate an incident:
+**2. Release.** In LaunchDarkly, turn the flag **On**, set the default rule to serve **true**, and click **Review and save**. Within a moment the open drawer swaps to **Express checkout** in place, with no page reload. A toast announces the release and the Release Console's listener log records it.
+
+**3. Roll back from the dashboard.** Turn the flag **Off**. The drawer swaps straight back to **Classic checkout**.
+
+**4. Remediate from the command line.** Turn the flag back **On** (serving **true**) so Express is showing, then simulate an incident from a second terminal:
 
 ```bash
 npm run remediate -- "Payment errors spiking on Express checkout"
 ```
 
-The trigger turns the flag off, the storefront reverts live, and the flag's **History** in LaunchDarkly records the change with your incident label. This is the same call a monitoring tool such as Datadog or New Relic would make automatically when an alert fires.
+The trigger turns the flag off, the drawer reverts to Classic live, and the flag's **History** in LaunchDarkly records the change with your incident label. This is the same call a monitoring tool such as Datadog or New Relic would make automatically when an alert fires.
+
+**5. Test in production (optional, requires Step 5 of setup).** Set the default rule back to serve **false** and keep the flag **On**, with `qa-tester-001` individually targeted to **true**. In the Release Console, switch **Shopping as** between **Guest shopper** (Classic) and **Internal QA tester** (Express). Same production code, two audiences, no reload.
 
 ---
 
