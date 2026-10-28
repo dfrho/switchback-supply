@@ -140,7 +140,7 @@ Open [http://localhost:5173](http://localhost:5173). The Release Console should 
 
 Keep LaunchDarkly open in one window and the storefront in another, side by side.
 
-**1. Test in production.** Open any product, pick a size, and click **Add to pack**. The checkout drawer opens; confirm you see **Classic checkout**. In the Release Console, switch **Shopping as** to **Internal QA tester**. The drawer swaps to **Express checkout**, with no reload. Switch back to Guest: Classic again. Same production code, two audiences. *(Requires Step 5.)*
+**1. Test in production.** Open any product, pick a size, and click **Add to pack**. The checkout drawer opens; confirm you see **Classic checkout**. Its fields start empty and are validated at each step; use the test card `4242 4242 4242 4242` with any future expiry. Nothing you type leaves the browser. In the Release Console, switch **Shopping as** to **Internal QA tester**. The drawer swaps to **Express checkout**, with no reload. Switch back to Guest: Classic again. Same production code, two audiences. *(Requires Step 5.)*
 
 **2. Release.** In LaunchDarkly, set the default rule to serve **true** and save. Within a moment, every shopper gets Express checkout. A toast announces the release and the listener log records it.
 

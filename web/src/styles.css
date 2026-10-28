@@ -1453,3 +1453,44 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* Checkout form validation and review */
+.form-row--three {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.7fr) minmax(0, 1fr);
+}
+.form-block label.has-error {
+  color: #9b2c2c;
+}
+.form-block label.has-error input {
+  border-color: #9b2c2c;
+  box-shadow: 0 0 0 1px #9b2c2c;
+}
+.form-block input:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 1px;
+}
+.field-error {
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+.review-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.review-summary > div {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: white;
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.9rem;
+}
+@media (max-width: 720px) {
+  .form-row--three,
+  .review-summary {
+    grid-template-columns: 1fr;
+  }
+}
