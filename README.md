@@ -360,8 +360,16 @@ Two layers of automated tests run on every pull request.
 
 | Layer | Tool | What it proves |
 |---|---|---|
-| Unit and component (69 tests) | Vitest + React Testing Library | Checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
+| Unit and component (75 tests) | Vitest + React Testing Library | Checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
 | End to end (61 test runs) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus both flags: **release and roll back mid-checkout with no page reload**; every Part 2 persona, rule, and attribute edit with the reason shown; a targeting change reaching the shopper live; contexts never in URLs and the private email never in events; and fallbacks when LaunchDarkly is unreachable |
+
+### Phone layout
+
+The store is responsive and was checked at iPhone width (390 px): nothing scrolls sideways, and the checkout drawer fills the screen with every field in view. To keep the suite readable, the automated phone checks are a single focused group (`tests/e2e/responsive.spec.ts`): no sideways scrolling on four key pages, the Release Console starting collapsed, and the checkout drawer fitting. Known limits on phones:
+
+- **No category menu.** The header's category links (Packs, Footwear, and so on) are hidden at phone width. Shoppers browse through the hero button, the "Shop by trail need" tiles, and the shop page's filter chips instead. A production store would add a compact menu.
+- **The open Release Console covers most of the screen.** It starts collapsed; collapse it again to watch the hero change.
+- **The Winter-Ready hero has no dedicated phone test.** It was checked by hand at 390 px.
 
 ### How the flag is tested without a LaunchDarkly account
 
