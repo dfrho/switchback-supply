@@ -60,6 +60,7 @@ const TOKEN = env.LD_API_TOKEN ?? '';
 const PROJECT = env.LD_PROJECT_KEY || 'default';
 const ENVIRONMENT = env.LD_ENVIRONMENT_KEY || 'production';
 const CLIENT_SIDE_ID = env.VITE_LD_CLIENT_SIDE_ID ?? '';
+const SDK_KEY = env.LD_SDK_KEY ?? '';
 // Override for LaunchDarkly's EU or federal instances (for example https://app.eu.launchdarkly.com).
 const API = `${(env.LD_API_URL || 'https://app.launchdarkly.com').replace(/\/$/, '')}/api/v2`;
 
@@ -196,8 +197,8 @@ async function setupAssistant() {
         instructions: [{ kind: 'updateFallthroughVariationOrRollout', variationId: controlId }],
       },
     });
-    // A new config's default rule serves the automatic "disabled" variation, so
-    // without this step the SDK would report the assistant as off.
+    // LaunchDarkly points a new config's default rule at the first variation created
+    // (Control here); setting it explicitly keeps the result independent of creation order.
     console.log(`  Default rule -> ${control.name}.`);
   }
 
@@ -247,6 +248,21 @@ async function main() {
     process.exit(1);
   } else {
     console.log(`  Found "${environment.name}"${CLIENT_SIDE_ID ? ', and it matches the app\'s client-side ID' : ''}.`);
+  }
+  // The assistant's server SDK key must belong to the same environment, or its
+  // configs, metrics, and experiment data land in a different environment.
+  // The keys are compared, never printed.
+  if (SDK_KEY && environment.apiKey && SDK_KEY !== environment.apiKey) {
+    const all = await getOrNull(`/projects/${PROJECT}/environments`);
+    const owner = all?.items?.find((e) => e.apiKey === SDK_KEY);
+    console.error(`  WARNING: LD_SDK_KEY (the assistant's server-side key) does not belong to "${ENVIRONMENT}".`);
+    console.error(
+      owner
+        ? `  It belongs to "${owner.name}", so the assistant's answers and metrics go there. Copy ${environment.name}'s SDK key into .env and Vercel.`
+        : '  It belongs to no environment in this project. Copy the SDK key from the same environment as the client-side ID.',
+    );
+  } else if (SDK_KEY && environment.apiKey) {
+    console.log('  LD_SDK_KEY (server side) belongs to the same environment.');
   }
 
   step(`Flag ${HERO_FLAG.key}`);

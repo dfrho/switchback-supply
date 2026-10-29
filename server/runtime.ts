@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { init, type LDClient } from '@launchdarkly/node-server-sdk';
+import { basicLogger, init, type LDClient } from '@launchdarkly/node-server-sdk';
 import { initAi } from '@launchdarkly/server-sdk-ai';
 import Anthropic from '@anthropic-ai/sdk';
 import type { AssistantDeps } from './assistant.js';
@@ -27,7 +27,9 @@ export async function getDeps(): Promise<{ deps: AssistantDeps; ld: LDClient }> 
     throw new NotConfigured('Set LD_SDK_KEY and ANTHROPIC_API_KEY on the server (see .env.example).');
   }
   if (!ldClient || !deps) {
-    ldClient = init(sdkKey);
+    // LD_LOG_LEVEL=debug (optional) shows the SDK's connection and event delivery in the server log.
+    const level = process.env.LD_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error' | undefined;
+    ldClient = init(sdkKey, level ? { logger: basicLogger({ level }) } : {});
     deps = {
       ai: initAi(ldClient),
       ld: ldClient,

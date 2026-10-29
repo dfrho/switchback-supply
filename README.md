@@ -416,7 +416,7 @@ It adds four things:
 
 1. Claude model configs, but only if your project does not already have them.
 2. The `shopping-assistant` Completion config, with the three variations above.
-3. A default rule that serves **Control**. A new config otherwise serves its built-in "disabled" variation, and the assistant would report itself as off.
+3. A default rule that serves **Control**. LaunchDarkly already points a new config's default rule at the first variation created, which is Control here. The script sets it explicitly so the result never depends on creation order.
 4. The `assistant-recommended-product` metric.
 
 To do the same by hand:
@@ -548,7 +548,7 @@ The end-to-end tests never contact real LaunchDarkly or Anthropic and do not use
 | `npm run remediate` fails with HTTP 404 | The trigger was reset or deleted. Create or reset it and update `.env`. |
 | The Trail guide always says it is "off the clock" | Either the server keys are missing (the server log says so; add `LD_SDK_KEY` and `ANTHROPIC_API_KEY` and restart `npm run dev`, or add them in Vercel and redeploy), or the `shopping-assistant` config is Off, missing, or its default rule serves "disabled". Run `npm run ld:setup` and check the config's Targeting tab. |
 | The Trail guide says it "lost the signal" | The model call failed: check the Anthropic key, the spend limit, and the server log. |
-| The Monitoring tab stays empty | It fills about a minute after the first answers. Events come from the server, so browser ad blockers do not affect it. Check that `LD_SDK_KEY` belongs to the environment you are viewing. |
+| The Monitoring tab stays empty | It fills about a minute after the first answers. Events come from the server, so browser ad blockers do not affect it. Most often `LD_SDK_KEY` is another environment's key (for example Production's while the app uses Test): check the other environment's Monitoring tab. `npm run ld:setup` warns when the key belongs to a different environment. `LD_LOG_LEVEL=debug` in `.env` shows the SDK's event delivery in the server log. |
 
 ---
 
