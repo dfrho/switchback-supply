@@ -4,7 +4,8 @@ A LaunchDarkly sample app: a fictional outdoor gear store that answers LaunchDar
 
 - Part 1, Release and Remediate: `release-new-checkout` wraps the checkout drawer (Classic vs Express), a change listener swaps it live, and a flag trigger turns it off (`npm run remediate`).
 - Part 2, Target: `release-landing-hero` wraps the home page hero (current vs Winter-Ready), with shopper contexts, individual targeting, three ordered rules, and a segment.
-- Next: see `docs/claude/roadmap.md` (Vercel deploy, extra credit 1 observability plus guarded rollout, extra credit 2 AgentControl with Anthropic, demo runbook).
+- Live at https://web-puce-kappa-92.vercel.app (Vercel, Test environment).
+- Next: see `docs/claude/roadmap.md` (extra credit AgentControl shopping assistant on Anthropic with an experiment, then the demo runbook).
 
 ## Commands
 

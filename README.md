@@ -4,13 +4,14 @@
 
 Switchback Supply plays the role of "ABC Company" from the exercise brief. Each section is written for the persona the brief names, the way it would be handed to a prospective customer.
 
+**Live demo: [web-puce-kappa-92.vercel.app](https://web-puce-kappa-92.vercel.app/)**, connected to the LaunchDarkly trial environment this repo was built against. Open the **Release Console** in the bottom-left corner to see the SDK connection, live flag values, and why LaunchDarkly chose each one. To run your own copy against your own LaunchDarkly account, follow [Setup, step by step](#setup-step-by-step), then [Deploy to Vercel](#deploy-to-vercel-optional) if you want a public URL.
+
 | Section | Persona | What it shows | Status |
 |---|---|---|---|
 | Storefront | All | 25-product catalog with color and size variants, product pages, a persistent cart | Done |
 | **Part 1: Release and Remediate** | Engineering manager | Flag-wrapped checkout, live listener, test in production, flag trigger remediation | Done |
 | **Part 2: Target** | Developer | Winter-Ready hero behind a flag, shopper contexts with attributes, individual and rule-based targeting | Done |
-| Extra credit 1 | Engineering manager | Observability plus a guarded rollout that rolls itself back | Planned |
-| Extra credit 2 | AI product manager | AgentControl (AI Configs) shopping assistant on Anthropic Claude | Planned |
+| Extra credit: AI Configs | AI product manager | AgentControl (formerly AI Configs) shopping assistant on Anthropic Claude, with an experiment comparing prompts and models | In progress |
 
 ---
 
@@ -187,6 +188,17 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173). Click the **Release Console** in the bottom-left corner to expand it; it should show **SDK: Streaming**.
 
+### Deploy to Vercel (optional)
+
+The store is a static single-page app, so any static host works. The repo includes a `vercel.json` for [Vercel](https://vercel.com/docs/project-configuration) that sets the install command (`npm ci`), the build command (`npm run build`), the output folder (`web/dist`), and a rewrite so deep links like `/products/ridgeline-45` load the app.
+
+1. In Vercel, **Add New > Project** and import your fork of this repository.
+2. Leave **Root Directory** as the repository root. Vercel reads `vercel.json` only from that folder; if Root Directory is `web`, the build looks for a `dist` folder that does not exist there and fails with `No Output Directory named "dist" found`. Any framework preset works, because `vercel.json` overrides its build settings, but keep the **Override** toggles off.
+3. Under **Environment Variables**, add `VITE_LD_CLIENT_SIDE_ID` with the same client-side ID as your `.env`. Do not add the trigger URL or the API token: they are only used by scripts on your machine.
+4. Deploy. The Release Console on the live URL should show **SDK: Streaming**, and flag changes in LaunchDarkly should reach the live site with no redeploy.
+
+`VITE_` variables are read at build time, so redeploy after changing the client-side ID.
+
 ---
 
 ## Demo walkthrough (about 3 minutes)
@@ -284,7 +296,7 @@ A manual trigger is the first step on a remediation ladder that enterprise teams
 
 1. **Flag trigger** (this part): a person, or a monitoring tool, calls a URL to turn the feature off.
 2. **Kill switch flag**: a permanent flag that guards a risky dependency long after launch.
-3. **Guarded rollout**: LaunchDarkly ramps the release gradually, watches error rate and business metrics, and **rolls back on its own** when a regression appears. No human in the loop. *(Extra credit 1 in this repo.)*
+3. **Guarded rollout**: LaunchDarkly ramps the release gradually, watches error rate and business metrics, and **rolls back on its own** when a regression appears. No human in the loop. This repo stops at the trigger, but the flag is ready for a guarded rollout: it needs only a metric to watch, such as error rate from LaunchDarkly's observability SDK.
 
 ---
 
@@ -352,7 +364,7 @@ The console changes **who the shopper is**; it never changes the rules. Rules li
 ### Production notes
 
 - **Bootstrapping**: for a 40,000-visitor page, the next step is to render the first page with flag values already in it (server-side evaluation passed to `createLDReactProvider` as `bootstrap`), which removes the placeholder entirely.
-- **Rolling out to everyone**: once the targeted groups are happy, replace the default rule's `false` with a percentage rollout, or a guarded rollout that watches error rate and conversions and rolls back on its own (extra credit 1).
+- **Rolling out to everyone**: once the targeted groups are happy, replace the default rule's `false` with a percentage rollout, or a guarded rollout that watches error rate and conversions and rolls back on its own.
 
 ## Testing
 
