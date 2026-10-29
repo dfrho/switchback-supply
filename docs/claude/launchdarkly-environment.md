@@ -36,6 +36,20 @@ As of October 29, 2026: flag **Off** at rest (serving `false`), default rule ser
 
 Source of truth: `scripts/ld-targeting.mjs`. The Release Console labels come from `HERO_TARGETING` in `web/src/launchdarkly/config.ts`.
 
+## AgentControl config (extra credit, AI Configs)
+
+Created by `npm run ld:setup` on October 29, 2026 (definition: `scripts/ld-ai-config.mjs`). AgentControl configs are project-wide; LaunchDarkly set the default rule to Control in both environments (the first variation created), and `ld:setup` set Test explicitly. Verified live in Test, locally and on the Vercel preview: Control answers on Claude Haiku 5.5, Monitoring shows requests, tokens, and cost (cost appears in the dashboard; the REST metrics endpoint reports cost as 0).
+
+Production also holds 3 early test answers and 1 thumbs up from before `LD_SDK_KEY` was corrected (it was Production's key). Harmless; ignore them.
+
+| Item | Value |
+|---|---|
+| Config | `shopping-assistant`, Completion mode |
+| Variations | `control` (Claude Haiku 5.5, guide prompt), `best-pick` (Haiku 5.5, best-pick prompt), `sonnet` (Claude Sonnet 5.5, guide prompt); parameters `max_tokens` 1024, `effort` low |
+| Default rule | Control (until the experiment takes over the default rule) |
+| Metric | `assistant-recommended-product`, custom conversion (binary), sent server-side |
+| Experiment | Planned: all three variations on the default rule, Bayesian, fed by `npm run assistant:traffic` (synthetic shoppers `synthetic-shopper-NNNN`, `trafficSource: synthetic`) |
+
 ## Segment
 
 `beta-shoppers` (Test, rule-based): context kind `user`, `betaTester` is one of `true` (boolean).
@@ -60,4 +74,4 @@ Every context also carries `country: US` and a detected `deviceType`. The consol
 | `LD_TRIGGER_URL_CHECKOUT_OFF` | `.env` | `npm run remediate` |
 | `LD_API_TOKEN` | `.env` | `npm run ld:setup` (personal token, Writer role, expires January 2027) |
 | `LD_PROJECT_KEY`, `LD_ENVIRONMENT_KEY` | `.env` | `default`, `test` |
-| `LD_SDK_KEY`, `ANTHROPIC_API_KEY` | `.env`, Vercel server env (planned) | Extra credit 2 server route |
+| `LD_SDK_KEY`, `ANTHROPIC_API_KEY` | `.env`, Vercel (Sensitive) | `/api/assistant` (server only) |

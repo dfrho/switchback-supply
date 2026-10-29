@@ -11,7 +11,7 @@ Switchback Supply plays the role of "ABC Company" from the exercise brief. Each 
 | Storefront | All | 25-product catalog with color and size variants, product pages, a persistent cart | Done |
 | **Part 1: Release and Remediate** | Engineering manager | Flag-wrapped checkout, live listener, test in production, flag trigger remediation | Done |
 | **Part 2: Target** | Developer | Winter-Ready hero behind a flag, shopper contexts with attributes, individual and rule-based targeting | Done |
-| Extra credit: AI Configs | AI product manager | AgentControl (formerly AI Configs) shopping assistant on Anthropic Claude, with an experiment comparing prompts and models | In progress |
+| [**Extra credit: AI Configs**](#extra-credit-ai-configs) | AI product manager | AgentControl (formerly AI Configs) shopping assistant on Anthropic Claude: prompt and model changed live, a kill switch, Monitoring, and an experiment comparing a new prompt and a larger model | Built (experiment results to follow) |
 
 ---
 
@@ -366,14 +366,144 @@ The console changes **who the shopper is**; it never changes the rules. Rules li
 - **Bootstrapping**: for a 40,000-visitor page, the next step is to render the first page with flag values already in it (server-side evaluation passed to `createLDReactProvider` as `bootstrap`), which removes the placeholder entirely.
 - **Rolling out to everyone**: once the targeted groups are happy, replace the default rule's `false` with a percentage rollout, or a guarded rollout that watches error rate and conversions and rolls back on its own.
 
+## Extra credit: AI Configs
+
+LaunchDarkly now calls this product **AgentControl** (formerly AI Configs). The dashboard shows it under **Agents > Configs**. The REST API, the SDK package, and this repo's code still use the older `ai-config` names.
+
+### The business problem
+
+Switchback Supply is rolling out a chatbot, the **Trail guide**, that helps shoppers choose gear. The AI product manager keeps finding ways to improve its prompt, and a newer, larger model is available. They need three things:
+
+1. **Change the prompt or the model without a deploy.** Prompt wording is product copy. It should not wait for an engineering release.
+2. **Turn the AI off instantly** if it misbehaves, while the store keeps working.
+3. **Find out which change actually helps shoppers,** with numbers rather than opinions, and know what each version costs.
+
+### What you will see
+
+A **Trail guide** button in the header opens a chat panel on every page. Ask about a trip ("Two nights in Colorado in October. What should I pack?"). The guide answers using the store's real catalog. Each product it recommends appears as a card that links to its product page. Under every answer, a small label names the model and the variation that answered, so a change in LaunchDarkly is visible in the chat. Thumbs up and down buttons send feedback to LaunchDarkly.
+
+The config `shopping-assistant` has three variations. Each one changes a single thing from Control, so an experiment can tell which change made the difference:
+
+| Variation | Model | Prompt | What it tests |
+|---|---|---|---|
+| **Control** | Claude Haiku 5.5 | Guide: up to three products, one line each | The baseline |
+| **Treatment A** (`best-pick`) | Claude Haiku 5.5 | Best pick: one product, why it fits, one alternative, a follow-up question when details are missing | A prompt change only |
+| **Treatment B** (`sonnet`) | Claude Sonnet 5.5 | Guide (same as Control) | A model change only |
+
+The prompts live in [`scripts/ld-ai-config.mjs`](scripts/ld-ai-config.mjs). Both prompts tell the model to recommend only catalog products, using the catalog the server passes in as the `{{catalog}}` variable.
+
+### Setup
+
+These steps add to the Part 1 and Part 2 setup above. They use the same LaunchDarkly environment.
+
+**Step A1: Add the two server keys to `.env`.** The assistant runs on the server, because the model key must never reach a browser:
+
+```bash
+LD_SDK_KEY=sdk-...          # LaunchDarkly > gear icon > Projects > your project > Environments > Test > SDK key
+ANTHROPIC_API_KEY=sk-ant-... # console.anthropic.com > API keys
+```
+
+Use the server-side **SDK key** from the same environment as your client-side ID. It is a different credential from the client-side ID and from `LD_API_TOKEN`. Neither key has a `VITE_` prefix, so Vite never bundles them into the browser. Set a monthly spend limit in the Anthropic Console; the experiment below costs a few dollars.
+
+**Step A2: Create the config, its variations, and the experiment metric.** Run the setup script. It is the same script Part 2 uses, and it is safe to run again:
+
+```bash
+npm run ld:setup -- --dry-run   # preview
+npm run ld:setup
+```
+
+It adds four things:
+
+1. Claude model configs, but only if your project does not already have them.
+2. The `shopping-assistant` Completion config, with the three variations above.
+3. A default rule that serves **Control**. LaunchDarkly already points a new config's default rule at the first variation created, which is Control here. The script sets it explicitly so the result never depends on creation order.
+4. The `assistant-recommended-product` metric.
+
+To do the same by hand:
+
+1. Go to **Agents > Configs > Create > Completion**. Use the key `shopping-assistant`.
+2. For each variation, choose the model, set `max_tokens` to `1024` and `effort` to `low`, and paste the system prompt from `scripts/ld-ai-config.mjs`.
+3. On the **Targeting** tab, set the default rule to Control, turn targeting **On**, and save.
+4. Go to **Metrics > Create metric**. Choose **Custom**, then **Conversion (binary)**, with the event key `assistant-recommended-product`.
+
+**Step A3: Run it.** Restart `npm run dev`, because Vite reads `.env` only at startup. Open the **Trail guide** and ask a question. The label under the answer should read **Claude Haiku 5.5 · variation control**.
+
+**Step A4 (live site): add the keys to Vercel.** Go to Vercel > Settings > Environment Variables and add `LD_SDK_KEY` and `ANTHROPIC_API_KEY`. Mark both **Sensitive**, then redeploy. The chat calls two Vercel Functions in [`api/`](api/), which run the same code as the dev server.
+
+### Demo walkthrough (about 3 minutes)
+
+1. **Ask a question.** Open the Trail guide and ask "Which headlamp is best for under $60?". The label shows Control on Claude Haiku 5.5.
+2. **Change the model with no deploy.** In LaunchDarkly, open `shopping-assistant` > **Targeting**, set the default rule to **Treatment B**, and save. Ask again. The label now reads Claude Sonnet 5.5. No code changed, nothing was redeployed, and the page was not reloaded.
+3. **Change the prompt live.** Open the **Variations** tab, edit Control's prompt (for example, "Answer in exactly two sentences"), and save. The next answer follows the new prompt.
+4. **Turn the AI off.** Turn the config's targeting **Off**. The next question gets a polite fallback and a link to the shop, and no model is called. Turn it back on and the guide returns. This is Part 1's kill switch, applied to AI.
+5. **Show the data.** Open the **Monitoring** tab. It shows tokens, time to generate, generations, errors, cost, and satisfaction from the thumbs buttons, each broken out by variation. Data updates about once a minute.
+
+### The experiment: which change helps shoppers?
+
+The brief's optional step: compare prompt and model variants on a metric that matters.
+
+- **Primary metric, `assistant-recommended-product`:** did the reply point the shopper at something the store sells? The server checks every product link in a reply against the catalog. It drops invented products, then sends this event when at least one real product remains. LaunchDarkly credits the event to the variation that answered.
+- **Also watched:** time to generate, tokens, and cost from the Monitoring tab (a larger model may win on quality and lose on cost), and satisfaction from real visitors' thumbs.
+
+**Create the experiment** (once Step A2 is done):
+
+1. Go to **Experiments > Create experiment** and choose to experiment on the `shopping-assistant` AgentControl config.
+2. **Audience:** the default rule. **Variations:** all three, Control as the baseline, split evenly.
+3. **Primary metric:** `assistant-recommended-product`. Use Bayesian statistics, which is the default.
+4. Start the experiment.
+
+LaunchDarkly cannot run an experiment and a guarded rollout on the same config at the same time. The dashboard's labels may differ slightly from these steps.
+
+**Synthetic shoppers.** A demo store has no real traffic, and an experiment needs hundreds of conversations per variation. [`scripts/assistant-traffic.mjs`](scripts/assistant-traffic.mjs) plays those shoppers:
+
+- Each one asks a realistic gear question through the store's own `/api/assistant`.
+- Every answer is a **real Claude reply** from the variation LaunchDarkly assigned.
+- The metric is measured from that reply, exactly as it is for a person.
+- Only the shoppers are simulated. They are labeled with the key `synthetic-shopper-NNNN` and the context attribute `trafficSource: "synthetic"`.
+
+```bash
+npm run assistant:traffic -- --dry-run                                   # plan and cost estimate
+npm run assistant:traffic -- --base-url http://localhost:5173 --count 10   # smoke test
+npm run assistant:traffic -- --base-url https://your-site.vercel.app --count 900 --start 1
+```
+
+About 900 conversations (roughly 300 per variation) cost about $3 at current Claude prices; the script prints its estimate first. Use a new `--start` range for each run, because LaunchDarkly keeps each shopper key in the same variation. Experiment results refresh periodically, so start the traffic a day before you need a decision.
+
+### How it works
+
+| File | Role |
+|---|---|
+| [`server/assistant.ts`](server/assistant.ts) | Reads the config for each shopper and request, maps its messages to Anthropic's Messages API, calls Claude, tracks the run, sends the experiment event, and records feedback |
+| [`server/config.ts`](server/config.ts) | Config key, metric event key, the safe fallback (disabled), and request limits |
+| [`server/runtime.ts`](server/runtime.ts) | One LaunchDarkly server SDK client and one Anthropic client per server process |
+| [`server/shopper.ts`](server/shopper.ts) | Validates the shopper sent by the browser and builds the context with the same `toLDContext()` the browser uses |
+| [`api/assistant.ts`](api/assistant.ts), [`api/assistant-feedback.ts`](api/assistant-feedback.ts) | Vercel Functions. They flush analytics events after responding with `waitUntil` |
+| [`web/src/components/ShoppingAssistant.tsx`](web/src/components/ShoppingAssistant.tsx) | The chat panel. It never talks to a model or a key directly |
+| [`web/vite.config.ts`](web/vite.config.ts) | Serves the same handlers during `npm run dev` |
+
+A few choices worth explaining:
+
+- **Same context on both sides.** The server builds the shopper's context with the browser's `toLDContext()`. A shopper therefore gets the same targeting and the same experiment bucket in the chat as on the rest of the site, and the email stays a private attribute.
+- **Config per request.** The server asks LaunchDarkly for the config on every request, with that shopper's context. LaunchDarkly evaluates it locally from memory, so this is fast. Reusing one config for everyone would ignore targeting.
+- **Mapping to Anthropic.** AgentControl stores a prompt as role-tagged messages. Anthropic takes the system prompt as a separate field and needs the conversation to start with a user turn, so `toAnthropicMessages()` converts one shape into the other. Only two model parameters are forwarded, each checked first: `max_tokens` and `effort`. Current Claude models reject sampling parameters such as `temperature`, so passing every dashboard parameter through could break the assistant.
+- **Tracking.** One tracker per answer records duration, token usage, and success or error with `trackMetricsOf`. Feedback arrives later, in a separate request. The tracker's resumption token rebuilds the same run, so a thumbs up lands on the variation that earned it. The token reaches the browser only inside an HMAC signature, so a forged one is rejected.
+- **Fallbacks.** If LaunchDarkly is unreachable, the code's fallback is "disabled", the same safe default every flag in this app uses. If the model call fails or declines, the shopper sees an apology instead of an error.
+- **Which SDK.** This uses LaunchDarkly's stable Node AI SDK, `@launchdarkly/server-sdk-ai` v2, with the official `@anthropic-ai/sdk`. LaunchDarkly's newer `@launchdarkly/ai-node` (open beta) adds a Claude handler, `@launchdarkly/ai-claude-messages`, that does the mapping and tracking automatically. For a customer going to production today, the stable SDK is the safer choice, and it shows exactly what the beta automates.
+
+### Production notes
+
+- **Trusting the shopper.** This demo has no login, so the browser sends the shopper's attributes. A real store would build the context on the server from the signed-in account.
+- **Abuse limits.** The endpoint caps question length, history, and `max_tokens`. A public production endpoint would also add rate limiting, for example [Vercel's WAF rate limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting).
+- **Online evaluations.** AgentControl can attach built-in judges (accuracy, relevance, toxicity) that score a sample of answers. Those scores can serve as experiment metrics or as guardrails for a guarded rollout.
+
 ## Testing
 
 Two layers of automated tests run on every pull request.
 
 | Layer | Tool | What it proves |
 |---|---|---|
-| Unit and component (75 tests) | Vitest + React Testing Library | Checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
-| End to end (61 test runs) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus both flags: **release and roll back mid-checkout with no page reload**; every Part 2 persona, rule, and attribute edit with the reason shown; a targeting change reaching the shopper live; contexts never in URLs and the private email never in events; and fallbacks when LaunchDarkly is unreachable |
+| Unit and component (105 tests) | Vitest + React Testing Library | The assistant's server code (Anthropic message mapping, parameter filtering, fallbacks, product-link checks, the experiment event, signed feedback tokens), the AgentControl setup staying in step with the server, the chat panel, checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
+| End to end (66 test runs) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus both flags: **release and roll back mid-checkout with no page reload**; every Part 2 persona, rule, and attribute edit with the reason shown; a targeting change reaching the shopper live; contexts never in URLs and the private email never in events; fallbacks when LaunchDarkly is unreachable; and the trail guide's answers, product cards, fallback, and feedback (with the server stubbed) |
 
 ### Phone layout
 
@@ -392,13 +522,13 @@ Every test runs against the Vite dev server, where React's StrictMode surfaces e
 ### Running the tests
 
 ```bash
-npm test                          # unit and component tests (about 10 seconds)
+npm test                          # unit and component tests, web and server (about 10 seconds)
 npx playwright install chromium   # first time only: downloads the test browser
 npm run test:e2e                  # end-to-end tests (about 3 minutes); starts its own servers
 npm run test:e2e:ui               # the same, in Playwright's interactive UI
 ```
 
-The end-to-end tests never contact real LaunchDarkly and do not use your `.env` keys. They need ports 5180, 5181, and 8787 free.
+The end-to-end tests never contact real LaunchDarkly or Anthropic and do not use your `.env` keys. They need ports 5180, 5181, and 8787 free.
 
 ## Troubleshooting
 
@@ -416,6 +546,9 @@ The end-to-end tests never contact real LaunchDarkly and do not use your `.env` 
 | Every persona gets the default rule | The app's client-side ID belongs to a different environment than the one you configured. `npm run ld:setup` detects this. |
 | `npm run ld:setup` fails with HTTP 401 or 403 | The API token is missing, invalid, or lacks the Writer role. |
 | `npm run remediate` fails with HTTP 404 | The trigger was reset or deleted. Create or reset it and update `.env`. |
+| The Trail guide always says it is "off the clock" | Either the server keys are missing (the server log says so; add `LD_SDK_KEY` and `ANTHROPIC_API_KEY` and restart `npm run dev`, or add them in Vercel and redeploy), or the `shopping-assistant` config is Off, missing, or its default rule serves "disabled". Run `npm run ld:setup` and check the config's Targeting tab. |
+| The Trail guide says it "lost the signal" | The model call failed: check the Anthropic key, the spend limit, and the server log. |
+| The Monitoring tab stays empty | It fills about a minute after the first answers. Events come from the server, so browser ad blockers do not affect it. Most often `LD_SDK_KEY` is another environment's key (for example Production's while the app uses Test): check the other environment's Monitoring tab. `npm run ld:setup` warns when the key belongs to a different environment. `LD_LOG_LEVEL=debug` in `.env` shows the SDK's event delivery in the server log. |
 
 ---
 
@@ -423,20 +556,24 @@ The end-to-end tests never contact real LaunchDarkly and do not use your `.env` 
 
 ```
 switchback-supply/
-  data/catalog.json             25 products, 109 SKUs (generated; shared with the server later)
+  data/catalog.json             25 products, 109 SKUs (generated; also the assistant's product knowledge)
   web/                          React 19 + Vite + TypeScript storefront
     src/main.tsx                LaunchDarkly provider setup
     src/launchdarkly/           Flag keys, fallbacks, contexts, personas, reason explainer
     src/pages/                  Home, shop, product page, not found
-    src/components/             Layout, product cards, checkout variants, Release Console
+    src/components/             Layout, product cards, checkout variants, Release Console, Trail guide chat
     src/state/                  Cart (persisted by SKU), toasts, and the listener log
     public/products/            Product photos (WebP, 800 x 800)
+  server/                       AI shopping assistant: AgentControl config, Claude call, tracking (Node)
+  api/                          Vercel Functions: /api/assistant and /api/assistant-feedback
   scripts/remediate.sh          Calls the flag trigger (Part 1 remediation)
-  scripts/ld-setup.mjs          Applies the Part 2 flag, segment, and targeting through the REST API
+  scripts/ld-setup.mjs          Applies the Part 2 flag, segment, and targeting, and the AgentControl config, through the REST API
+  scripts/ld-ai-config.mjs      The assistant's config, three variations, prompts, and metric as data
+  scripts/assistant-traffic.mjs Labeled synthetic shoppers for the experiment (real Claude replies)
   scripts/ld-targeting.mjs      The Part 2 configuration as data (reviewed in pull requests)
   scripts/catalog-source.py     Product copy, prices, and variants; generates data/catalog.json
   scripts/validate-catalog.mjs  Catalog checks run in CI
-  vercel.json                   Build settings and single-page app routing for Vercel
+  vercel.json                   Build settings, function duration, and single-page app routing for Vercel
   tests/e2e/                  Playwright end-to-end tests
   tests/mock-launchdarkly/    Local mock of LaunchDarkly's client-side endpoints for tests
   playwright.config.ts        End-to-end setup: mock server, dev server, production build
@@ -453,7 +590,8 @@ switchback-supply/
 | `npm run typecheck` | TypeScript check only |
 | `npm run lint` | Lint with oxlint |
 | `npm run remediate -- "label"` | Turn the checkout flag off through its trigger |
-| `npm run ld:setup` | Create and target the Part 2 hero flag and segment in LaunchDarkly (`-- --dry-run` to preview) |
+| `npm run ld:setup` | Create and target the Part 2 hero flag and segment, and the AgentControl config and metric, in LaunchDarkly (`-- --dry-run` to preview) |
+| `npm run assistant:traffic` | Labeled synthetic shoppers for the AI experiment (`-- --dry-run` for the plan and cost estimate) |
 | `npm test` | Unit and component tests |
 | `npm run test:e2e` | End-to-end tests in Chromium (run `npx playwright install chromium` once first) |
 | `npm run catalog` | Regenerate `data/catalog.json` from `scripts/catalog-source.py` (needs Python 3) |
@@ -471,6 +609,10 @@ switchback-supply/
 - [Evaluation reasons](https://launchdarkly.com/docs/sdk/concepts/evaluation-reasons) and [Bootstrapping](https://launchdarkly.com/docs/sdk/features/bootstrapping)
 - [REST API: update feature flag with semantic patch](https://launchdarkly.com/docs/api/feature-flags/patch-feature-flag), [update segment](https://launchdarkly.com/docs/api/segments/patch-segment), and [API access tokens](https://launchdarkly.com/docs/home/account/api)
 - [Kill switch flags](https://launchdarkly.com/docs/home/flags/killswitch) and [Guarded rollouts](https://launchdarkly.com/docs/home/releases/guarded-rollouts)
+- [AgentControl (formerly AI Configs)](https://launchdarkly.com/docs/home/agentcontrol), [Creating configs](https://launchdarkly.com/docs/home/agentcontrol/create), [Variations](https://launchdarkly.com/docs/home/agentcontrol/create-variation), [Targeting](https://launchdarkly.com/docs/home/agentcontrol/target), and [Monitoring](https://launchdarkly.com/docs/home/agentcontrol/monitor)
+- [Node.js AI SDK (stable)](https://launchdarkly.com/docs/sdk/ai/node-js-legacy), the newer [Node.js AI SDK (beta)](https://launchdarkly.com/docs/sdk/ai/node-js), and [Tracking AI metrics](https://launchdarkly.com/docs/sdk/features/ai-metrics)
+- [Experiments with AgentControl](https://launchdarkly.com/docs/home/agentcontrol/experimentation), [Online evaluations](https://launchdarkly.com/docs/home/agentcontrol/online-evaluations), and [Sending custom events](https://launchdarkly.com/docs/sdk/features/events)
+- [Node.js server-side SDK](https://launchdarkly.com/docs/sdk/server-side/node-js) and the [AgentControl REST API](https://launchdarkly.com/docs/api/agentcontrol)
 
 ## About the catalog
 

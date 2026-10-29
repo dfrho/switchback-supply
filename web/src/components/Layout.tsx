@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from 'react-router';
 import { CATEGORIES } from '../data/catalog';
 import { useCart } from '../state/Cart';
 import { Logo } from './Brand';
 import CheckoutDrawer from './CheckoutDrawer';
 import ReleaseConsole from './ReleaseConsole';
+import ShoppingAssistant from './ShoppingAssistant';
 
 /** Scroll to the top on page changes, like a traditional site. */
 function ScrollToTop() {
@@ -17,15 +18,17 @@ function ScrollToTop() {
 }
 
 /**
- * Site shell: header, page content, footer, plus two things that stay mounted
- * on every page: the checkout drawer (so its flag listener is always active)
- * and the Release Console.
+ * Site shell: header, page content, footer, plus things that stay mounted on
+ * every page: the checkout drawer (so its flag listener is always active), the
+ * AI trail guide (so a conversation survives page changes), and the Release Console.
  */
 export default function Layout() {
   const { count, openCart } = useCart();
   const [params] = useSearchParams();
   const { pathname } = useLocation();
   const activeCategory = pathname === '/shop' ? params.get('category') : null;
+  const [guideOpen, setGuideOpen] = useState(false);
+  const closeGuide = useCallback(() => setGuideOpen(false), []);
 
   return (
     <div className="page">
@@ -44,6 +47,18 @@ export default function Layout() {
             </Link>
           ))}
         </nav>
+        <button className="cart-btn guide-btn" onClick={() => setGuideOpen(true)} aria-label="Ask the trail guide, our AI shopping assistant">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path
+              d="M4 5h16v11H9l-5 4V5Z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="cart-btn__label">Trail guide</span>
+        </button>
         <button className="cart-btn" onClick={openCart} aria-label={`Open your pack, ${count} ${count === 1 ? 'item' : 'items'}`}>
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path
@@ -72,6 +87,7 @@ export default function Layout() {
       </footer>
 
       <CheckoutDrawer />
+      <ShoppingAssistant open={guideOpen} onClose={closeGuide} />
       <ReleaseConsole />
     </div>
   );

@@ -19,14 +19,15 @@ Dropped by decision on October 29: the observability plus guarded rollout extra 
 
 ## 1. Extra credit: AgentControl (AI Configs) shopping assistant, with an experiment
 
-Branch `feat/ai-shopping-assistant`. Target: ready Friday October 30 so experiment traffic can start.
+Branch `feat/ai-shopping-assistant` (code done October 29; awaiting live verification, `ld:setup` run, and experiment start). Target: experiment traffic running by Friday October 30.
 
 Decisions:
 - Stable SDK: `@launchdarkly/server-sdk-ai` v2 (maintenance mode) with `@launchdarkly/node-server-sdk` and `@anthropic-ai/sdk`. Map messages to Anthropic and call the tracker manually. The README names the beta `@launchdarkly/ai-node` plus `@launchdarkly/ai-claude-messages` as the direction (open beta, auto metrics, no fallback argument, no documented feedback API).
 - Catalog gear advisor: grounded in `data/catalog.json` through a compact `{{catalog}}` prompt variable; recommends products as `/products/<id>` links that the server validates against the catalog.
 - Completion mode config `shopping-assistant`, three variations: Control (Haiku 5.5, current prompt), Treatment A (Haiku 5.5, new prompt), Treatment B (Sonnet 5.5, current prompt). Each treatment changes one thing.
 - Anthropic API version 2026-10-21 rejects `temperature`, `top_p`, `top_k` on current models and requires `max_tokens`: forward only `max_tokens` (read `max_tokens` or `maxTokens`).
-- A new config's default rule serves the auto "disabled" variation: setup must point the fallthrough at Control.
+- Observed October 29: a new config's default rule pointed at the first variation created (Control), in every environment, not at "disabled" as one research source claimed. Setup still sets it explicitly.
+- Observed October 29: the first live answers landed in Production because `LD_SDK_KEY` was Production's key; `ld:setup` now warns about this.
 - Feedback: tracker `resumptionToken` stays server-side inside an HMAC-signed token; `aiClient.createTracker(token, context).trackFeedback(...)`.
 - Experiment metric: custom conversion `assistant-recommended-product`, sent server-side when a real reply links at least one real catalog product. Synthetic shoppers (`scripts/assistant-traffic.mjs`, keys `synthetic-shopper-NNNN`, `trafficSource: synthetic`) ask real questions and get real Claude replies; no behavior is faked. About 300 conversations per variation.
 - Vercel: `api/assistant.ts` and `api/assistant-feedback.ts` (`export default { fetch }`), shared code in `server/`, Node SDK singleton, `waitForInitialization({ timeout })` in try/catch, `waitUntil(flush())` from `@vercel/functions`. Local dev: Vite middleware routes `/api/assistant*` to the same handlers.

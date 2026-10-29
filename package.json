@@ -12,17 +12,25 @@
   "scripts": {
     "dev": "npm run dev --workspace web",
     "build": "npm run build --workspace web",
-    "typecheck": "npm run typecheck --workspace web && tsc -p tests",
-    "lint": "npm run lint --workspace web",
+    "typecheck": "npm run typecheck --workspace web && tsc -p tests && tsc -p server",
+    "lint": "npm run lint --workspace web && oxlint server api",
     "remediate": "bash scripts/remediate.sh",
     "ld:setup": "node scripts/ld-setup.mjs",
     "validate:catalog": "node scripts/validate-catalog.mjs",
     "catalog": "python3 scripts/catalog-source.py",
-    "test": "npm run test --workspace web",
+    "test": "npm run test --workspace web && vitest run --config server/vitest.config.ts",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "assistant:traffic": "node scripts/assistant-traffic.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0"
-  }
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "@launchdarkly/node-server-sdk": "^9.16.0",
+    "@launchdarkly/server-sdk-ai": "^2.0.16",
+    "@vercel/functions": "^3.10.4"
+  },
+  "type": "module"
 }

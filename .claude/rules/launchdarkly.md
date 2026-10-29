@@ -20,7 +20,8 @@ paths:
 ## Server and scripts
 
 - Server-side keys (`LD_SDK_KEY`, `LD_API_TOKEN`, `ANTHROPIC_API_KEY`, trigger URLs) are read from `process.env` or the repo-root `.env` and are never prefixed with `VITE_`.
-- The Node server SDK client must be a singleton, created once per process (not per request); on short-lived serverless functions, `flush()` before returning.
+- The Node server SDK client must be a singleton, created once per process (not per request); on short-lived serverless functions, flush events with `waitUntil(ld.flush())` (see `server/runtime.ts` and `server/http.ts`).
+- AgentControl: evaluate `completionConfig` per request with the shopper's context (built by `toLDContext()` via `server/shopper.ts`), always with the disabled fallback; one tracker per answer; feedback through the signed resumption token. Server logic takes injected dependencies so it is unit tested with fakes.
 - REST API changes go through `scripts/ld-setup.mjs` patterns: `LD-API-Version: 20240415`, semantic patch with "replace" instructions so reruns converge, a `--dry-run`, an environment check against `VITE_LD_CLIENT_SIDE_ID`, and clear errors for 401 and 403. Configuration data belongs in a separate module (like `ld-targeting.mjs`) that a unit test can compare with the app.
 
 ## Comments
