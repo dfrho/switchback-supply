@@ -38,7 +38,9 @@ Source of truth: `scripts/ld-targeting.mjs`. The Release Console labels come fro
 
 ## AgentControl config (extra credit, AI Configs)
 
-Not yet created in Test as of October 29, 2026; `npm run ld:setup` creates it (only when the user asks). Definition: `scripts/ld-ai-config.mjs`.
+Created by `npm run ld:setup` on October 29, 2026 (definition: `scripts/ld-ai-config.mjs`). AgentControl configs are project-wide; LaunchDarkly set the default rule to Control in both environments (the first variation created), and `ld:setup` set Test explicitly. Verified live in Test, locally and on the Vercel preview: Control answers on Claude Haiku 5.5, Monitoring shows requests, tokens, and cost (cost appears in the dashboard; the REST metrics endpoint reports cost as 0).
+
+Production also holds 3 early test answers and 1 thumbs up from before `LD_SDK_KEY` was corrected (it was Production's key). Harmless; ignore them.
 
 | Item | Value |
 |---|---|
