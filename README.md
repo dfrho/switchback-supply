@@ -468,6 +468,8 @@ Switchback Supply and every product are fictional. Product photos were generated
 
 Built by David Rhodes with Claude Code as a pair programmer. Claude researched the current LaunchDarkly documentation and drafted each pull request; David reviewed, ran, and tested every change against a live LaunchDarkly environment before merging.
 
+The guidance Claude Code works from is part of the repo: `CLAUDE.md` (project overview, commands, rules), `.claude/rules/` (LaunchDarkly SDK and testing conventions), and `docs/claude/` (the roadmap and the LaunchDarkly account setup this app expects).
+
 ## License
 
 MIT. Switchback Supply is fictional. Product names and illustrations are invented for this demo.
