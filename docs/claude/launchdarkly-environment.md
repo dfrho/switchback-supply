@@ -22,7 +22,7 @@ Production also holds a copy of the Part 2 targeting from an early `ld:setup` ru
 
 ### `release-new-checkout` targeting (Test)
 
-Default rule serves `false` unless the user is demonstrating a release. Optional individual target `qa-tester-001` serves `true` (README Step 5). A **Generic flag trigger** with action "turn the flag off" exists for this environment; its URL is in `.env` as `LD_TRIGGER_URL_CHECKOUT_OFF`, and `npm run remediate` calls it. Resetting the trigger issues a new URL.
+As of October 29, 2026: flag **Off** at rest (serving `false`), default rule serves `true`, no individual targets. Turning the flag On therefore releases Express checkout to everyone, which is the Part 1 demo. README Step 5's optional `qa-tester-001` target is not currently set. The live site (Vercel) uses this environment, and the dashboard showed its evaluations arriving. A **Generic flag trigger** with action "turn the flag off" exists for this environment; its URL is in `.env` as `LD_TRIGGER_URL_CHECKOUT_OFF`, and `npm run remediate` calls it. Resetting the trigger issues a new URL.
 
 ### `release-landing-hero` targeting (Test), applied by `npm run ld:setup`
 
