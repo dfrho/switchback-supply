@@ -8,6 +8,10 @@ dist/
 .env.*
 !.env.example
 
+# Claude Code: personal, uncommitted context and settings
+CLAUDE.local.md
+.claude/settings.local.json
+
 # Tooling
 .vercel/
 .DS_Store
