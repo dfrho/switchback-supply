@@ -29,6 +29,11 @@ export interface ShopperAttributes {
   /** Detected from the browser, so it works for anonymous guests too. */
   deviceType: DeviceType;
   betaTester: boolean;
+  /**
+   * Set to "synthetic" only by scripts/assistant-traffic.mjs, so simulated shoppers
+   * are labeled as such on LaunchDarkly's Contexts page and in experiment data.
+   */
+  trafficSource?: 'synthetic';
 }
 
 export type PersonaId = 'guest' | 'qa' | 'gold' | 'beta' | 'employee';
@@ -87,6 +92,7 @@ export function toLDContext(a: ShopperAttributes): LDContext {
   if (a.name) context.name = a.name;
   if (a.email) context.email = a.email;
   if (a.state) context.state = a.state;
+  if (a.trafficSource) context.trafficSource = a.trafficSource;
   context._meta = { privateAttributes: PRIVATE_ATTRIBUTES };
   return context as LDContext;
 }

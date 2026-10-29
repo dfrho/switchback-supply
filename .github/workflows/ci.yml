@@ -44,11 +44,15 @@ jobs:
       - name: Dry run the LaunchDarkly setup script
         run: npm run ld:setup -- --dry-run
 
+      - name: Dry run the synthetic traffic script
+        run: npm run assistant:traffic -- --dry-run
+
       - name: Guard against committed secrets
         # Fails if anything that looks like a LaunchDarkly server SDK key, API token,
-        # or trigger URL is committed. Client-side IDs are public by design and allowed.
+        # or trigger URL, or an Anthropic API key, is committed. Client-side IDs are
+        # public by design and allowed.
         run: |
-          if git grep -nE "sdk-[0-9a-f]{8}-[0-9a-f]{4}-|api-[0-9a-f]{8}-[0-9a-f]{4}-|app\.launchdarkly\.com/webhook/trig" -- . ':!.github/workflows/ci.yml'; then
+          if git grep -nE "sdk-[0-9a-f]{8}-[0-9a-f]{4}-|api-[0-9a-f]{8}-[0-9a-f]{4}-|app\.launchdarkly\.com/webhook/trig|sk-ant-[A-Za-z0-9_-]{20,}" -- . ':!.github/workflows/ci.yml'; then
             echo "Possible secret committed. Remove it and rotate the key in LaunchDarkly."
             exit 1
           fi

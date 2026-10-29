@@ -1,6 +1,5 @@
 import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 const MOCK_LD = 'http://localhost:8787';
 export const FLAG = 'release-new-checkout';
@@ -96,7 +95,7 @@ export interface Product {
   variants: Variant[];
 }
 export const catalog: { categories: { id: string; name: string }[]; products: Product[] } = JSON.parse(
-  readFileSync(join(__dirname, '..', '..', 'data', 'catalog.json'), 'utf8'),
+  readFileSync(new URL('../../data/catalog.json', import.meta.url), 'utf8'),
 );
 
 export const product = (id: string) => catalog.products.find((p) => p.id === id)!;

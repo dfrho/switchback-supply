@@ -1,13 +1,19 @@
 #!/usr/bin/env node
 /**
- * PART 2 SETUP, AS CODE
+ * PART 2 AND AI CONFIGS SETUP, AS CODE
  *
- * Creates or updates everything Part 2 needs in one LaunchDarkly environment:
+ * Creates or updates everything Part 2 and the AI Configs extra credit need in
+ * one LaunchDarkly environment:
  *   1. The release-landing-hero flag (boolean, available to client-side SDKs)
  *   2. The beta-shoppers segment (betaTester is one of true)
  *   3. The hero's targeting: individual target, three rules in order, default false, flag On
+ *   4. AgentControl (formerly AI Configs): Claude model configs if your project lacks them,
+ *      the shopping-assistant config with three variations, and its default rule (Control)
+ *   5. The assistant-recommended-product metric for the experiment
  *
- * It is safe to run again: it replaces targeting instead of appending to it.
+ * It is safe to run again: it replaces targeting instead of appending to it, and
+ * updates a variation only when its prompt or model changed. While an experiment
+ * is running, do not change its variations (LaunchDarkly will warn you, and so does this script).
  *
  * Why a script? LaunchDarkly's dashboard offers only attributes it has already
  * seen from an SDK, so a brand-new environment cannot pick betaTester, loyaltyTier,
@@ -30,6 +36,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BETA_SEGMENT, HERO_FLAG, HERO_TARGETING, heroTargetingInstructions } from './ld-targeting.mjs';
+import { AI_CONFIG, DEFAULT_VARIATION_KEY, MODELS, RECOMMENDED_PRODUCT_METRIC, VARIATIONS, variationBody } from './ld-ai-config.mjs';
 
 const API_VERSION = '20240415';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -99,6 +106,113 @@ function printPlan() {
   console.log(JSON.stringify(BETA_SEGMENT.rules, null, 2));
   step(`Flag targeting in ${ENVIRONMENT} (semantic patch):`);
   console.log(JSON.stringify(heroTargetingInstructions({ trueId: '<true variation id>', falseId: '<false variation id>' }), null, 2));
+  step(`Model configs: create ${Object.values(MODELS).map((m) => m.key).join(', ')} if the project lacks them`);
+  step(`AgentControl config ${AI_CONFIG.key}: create if missing (mode ${AI_CONFIG.mode}), then create or update its variations:`);
+  for (const v of VARIATIONS) console.log(`  ${v.key}: ${JSON.stringify({ ...variationBody(v), messages: '[system prompt, see scripts/ld-ai-config.mjs]' })}`);
+  step(`AgentControl targeting in ${ENVIRONMENT}: default rule serves "${DEFAULT_VARIATION_KEY}"`);
+  step(`Metric ${RECOMMENDED_PRODUCT_METRIC.key}: create if missing`);
+  console.log(JSON.stringify(RECOMMENDED_PRODUCT_METRIC, null, 2));
+}
+
+/** True when an existing variation already has this prompt and model, so a rerun changes nothing. */
+function variationMatches(existing, body) {
+  const prompt = existing?.messages?.find((m) => m.role === 'system')?.content;
+  const modelKey = existing?.modelConfigKey;
+  return prompt === body.messages[0].content && modelKey === body.modelConfigKey && existing?.name === body.name;
+}
+
+async function setupAssistant() {
+  const base = `/projects/${PROJECT}/ai-configs`;
+
+  step('Model configs (Anthropic Claude)');
+  const known = new Set(((await getOrNull(`${base}/model-configs`)) ?? []).map?.((m) => m.key) ?? []);
+  for (const model of Object.values(MODELS)) {
+    if (known.has(model.key)) {
+      console.log(`  ${model.key}: available.`);
+      continue;
+    }
+    try {
+      await api('POST', `${base}/model-configs`, {
+        label: `Create model config ${model.key}`,
+        body: {
+          key: model.key,
+          id: model.id,
+          name: model.name,
+          provider: 'Anthropic',
+          costPerInputToken: model.costPerInputToken,
+          costPerOutputToken: model.costPerOutputToken,
+        },
+      });
+      console.log(`  ${model.key}: created as a custom model config.`);
+    } catch (error) {
+      // Keys of LaunchDarkly's global catalog models are reserved: that means it already exists.
+      if (error instanceof ApiError && (error.status === 400 || error.status === 409)) console.log(`  ${model.key}: provided by LaunchDarkly.`);
+      else throw error;
+    }
+  }
+
+  step(`AgentControl config ${AI_CONFIG.key}`);
+  if (!(await getOrNull(`${base}/${AI_CONFIG.key}`))) {
+    await api('POST', base, { label: 'Create AgentControl config', body: AI_CONFIG });
+    console.log('  Created.');
+  } else {
+    console.log('  Already exists.');
+  }
+
+  for (const variation of VARIATIONS) {
+    const body = variationBody(variation);
+    const existing = await getOrNull(`${base}/${AI_CONFIG.key}/variations/${variation.key}`);
+    // The response lists every version of the variation; compare against the newest.
+    const latest = (existing?.items ?? []).reduce((a, b) => ((b.version ?? 0) > (a?.version ?? 0) ? b : a), undefined);
+    if (!existing) {
+      await api('POST', `${base}/${AI_CONFIG.key}/variations`, { label: `Create variation ${variation.key}`, body: { key: variation.key, ...body } });
+      console.log(`  Variation ${variation.key}: created.`);
+    } else if (variationMatches(latest, body)) {
+      console.log(`  Variation ${variation.key}: up to date.`);
+    } else {
+      await api('PATCH', `${base}/${AI_CONFIG.key}/variations/${variation.key}`, { label: `Update variation ${variation.key}`, body });
+      console.log(`  Variation ${variation.key}: updated (new version). If an experiment is running on this config, restart it.`);
+    }
+  }
+
+  step(`AgentControl targeting in ${ENVIRONMENT}`);
+  const targeting = await api('GET', `${base}/${AI_CONFIG.key}/targeting`);
+  const control = VARIATIONS.find((v) => v.key === DEFAULT_VARIATION_KEY);
+  const controlId = targeting.variations?.find(
+    (v) => v.name === control.name || v.value?._ldMeta?.variationKey === control.key || v.value?.key === control.key,
+  )?._id;
+  if (!controlId) throw new Error(`Could not find the "${control.name}" variation in ${AI_CONFIG.key}'s targeting.`);
+  const fallthrough = targeting.environments?.[ENVIRONMENT]?.fallthrough;
+  if (fallthrough?.rollout) {
+    // An experiment or percentage rollout owns the default rule; leave it alone.
+    console.log('  Default rule is a percentage split (an experiment or rollout). Left unchanged.');
+  } else {
+    await api('PATCH', `${base}/${AI_CONFIG.key}/targeting`, {
+      label: 'Update AgentControl targeting',
+      contentType: 'application/json; domain-model=launchdarkly.semanticpatch',
+      body: {
+        environmentKey: ENVIRONMENT,
+        comment: 'Default rule serves Control (npm run ld:setup, scripts/ld-ai-config.mjs)',
+        instructions: [{ kind: 'updateFallthroughVariationOrRollout', variationId: controlId }],
+      },
+    });
+    // A new config's default rule serves the automatic "disabled" variation, so
+    // without this step the SDK would report the assistant as off.
+    console.log(`  Default rule -> ${control.name}.`);
+  }
+
+  if (targeting.environments?.[ENVIRONMENT]?.enabled === false) {
+    // The REST API has no "turn on" instruction for AgentControl targeting.
+    console.log(`  NOTE: targeting is Off in ${ENVIRONMENT}, so everyone gets the fallback. Turn it On in Agents > Configs > ${AI_CONFIG.key} > Targeting.`);
+  }
+
+  step(`Metric ${RECOMMENDED_PRODUCT_METRIC.key}`);
+  if (await getOrNull(`/metrics/${PROJECT}/${RECOMMENDED_PRODUCT_METRIC.key}`)) {
+    console.log('  Already exists.');
+  } else {
+    await api('POST', `/metrics/${PROJECT}`, { label: 'Create metric', body: RECOMMENDED_PRODUCT_METRIC });
+    console.log('  Created (custom conversion, binary).');
+  }
 }
 
 async function main() {
@@ -199,12 +313,15 @@ async function main() {
   HERO_TARGETING.rules.forEach((rule, i) => console.log(`  Rule ${i + 1}: ${rule.description} -> true`));
   console.log('  Default rule -> false. Flag is On.');
 
+  await setupAssistant();
+
   console.log('\nDone. Open the store, expand the Release Console, and switch personas.');
+  console.log('Then open the Trail guide and ask a question. To start the experiment, see the README (Extra credit: AI Configs).');
 }
 
 main().catch((error) => {
   console.error(`\n${error.message}`);
   if (error instanceof ApiError && error.status === 401) console.error('The API token is missing or invalid.');
-  if (error instanceof ApiError && error.status === 403) console.error('The API token needs the Writer role (or a custom role that can edit flags and segments).');
+  if (error instanceof ApiError && error.status === 403) console.error('The API token needs the Writer role (or a custom role that can edit flags, segments, AgentControl configs, and metrics).');
   process.exit(1);
 });

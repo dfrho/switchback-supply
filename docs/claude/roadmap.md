@@ -19,7 +19,7 @@ Dropped by decision on October 29: the observability plus guarded rollout extra 
 
 ## 1. Extra credit: AgentControl (AI Configs) shopping assistant, with an experiment
 
-Branch `feat/ai-shopping-assistant`. Target: ready Friday October 30 so experiment traffic can start.
+Branch `feat/ai-shopping-assistant` (code done October 29; awaiting live verification, `ld:setup` run, and experiment start). Target: experiment traffic running by Friday October 30.
 
 Decisions:
 - Stable SDK: `@launchdarkly/server-sdk-ai` v2 (maintenance mode) with `@launchdarkly/node-server-sdk` and `@anthropic-ai/sdk`. Map messages to Anthropic and call the tracker manually. The README names the beta `@launchdarkly/ai-node` plus `@launchdarkly/ai-claude-messages` as the direction (open beta, auto metrics, no fallback argument, no documented feedback API).
