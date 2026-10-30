@@ -5,7 +5,9 @@
  * drawer sends with ldClient.track() when an order is placed (see
  * web/src/components/CheckoutDrawer.tsx). One event can back several metrics:
  * one counts orders (conversion), the other averages the value sent with the
- * event (the order total), which is average order value. A unit test checks
+ * event (the order total) per shopper. Shoppers who were served the flag but did
+ * not order count as $0, so it measures order dollars per shopper: conversion and
+ * order size in one number, the usual revenue metric for a checkout. A unit test checks
  * that the event key matches METRIC_EVENTS in web/src/launchdarkly/config.ts.
  *
  * Attach them to release-new-checkout in an experiment or a guarded rollout to
@@ -34,7 +36,8 @@ export const CHECKOUT_METRICS = [
     eventKey: CHECKOUT_EVENT,
     isNumeric: true,
     unit: 'dollars',
-    // Average order value: each shopper's orders are averaged, then compared by mean.
+    // Each shopper's orders are averaged, then compared by mean across shoppers.
+    // LaunchDarkly counts shoppers with no order as $0 ("Units without events").
     unitAggregationType: 'average',
     analysisType: 'mean',
     successCriteria: 'HigherThanBaseline',

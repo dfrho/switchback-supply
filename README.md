@@ -280,7 +280,7 @@ ldClient.track('checkout-completed', { checkout: 'express', items: 2 }, orderTot
 | Metric | Kind | Measures |
 |---|---|---|
 | `checkout-completed` | Conversion | Did the shopper place an order? |
-| `checkout-order-value` | [Value](https://launchdarkly.com/docs/home/metrics/custom-numeric), dollars | Average order value |
+| `checkout-order-value` | [Value](https://launchdarkly.com/docs/home/metrics/custom-numeric), dollars | Order dollars per shopper. Shoppers who did not order count as $0, so it reflects both conversion and order size |
 
 LaunchDarkly credits each event to the checkout that shopper was served, so these metrics can compare Express with Classic in an experiment, or be watched by a guarded rollout. The event carries no personal data. To see events arrive, open **Metrics** in LaunchDarkly and check the metric's event activity, or watch **Live events**. (Ad blockers stop these events; see [Troubleshooting](#troubleshooting).)
 
