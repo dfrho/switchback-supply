@@ -47,6 +47,8 @@ Iteration 2, branch `feat/bundle-experiment`: Control vs Sonnet vs the `bundle` 
 
 ## 3. Demo runbook and rehearsal
 
+Runbook written October 30, 2026: `docs/demo-runbook.md`. Rehearsal still to do.
+
 - A one-page runbook in the repo: pre-demo checklist (clean browser profile without ad blockers, flags in the expected starting state, trial still active), the Part 1 walkthrough, the Part 2 persona walkthrough, the AI assistant and experiment, and recovery steps.
 - Rehearse end to end against the live Vercel URL before submission.
 
