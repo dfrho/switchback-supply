@@ -27,9 +27,24 @@ export const AI_CONFIGS = {
  * metric's event key in LaunchDarkly exactly (Metrics > assistant-recommended-product).
  */
 export const METRIC_EVENTS = {
-  /** Sent when a reply links at least one real catalog product. The experiment's primary metric. */
+  /** Sent when a reply links at least one real catalog product. Iteration 1's primary metric. */
   recommendedProduct: 'assistant-recommended-product',
+  /**
+   * Sent when the real products a reply recommends add up to FREE_SHIPPING_MIN or more:
+   * the kit it suggested would ship free. Iteration 2's primary metric.
+   */
+  freeShippingBasket: 'assistant-free-shipping-basket',
+  /** The recommended products' total price in dollars, sent as the metric value. */
+  basketValue: 'assistant-basket-value',
+  /** How long the shopper waited for the answer, in milliseconds, sent as the metric value. A guardrail. */
+  responseTime: 'assistant-response-time',
 } as const;
+
+/**
+ * Orders of this many dollars or more ship free. Same rule as the store
+ * (FREE_SHIPPING_MIN in web/src/data/catalog.ts); a unit test keeps them equal.
+ */
+export const FREE_SHIPPING_MIN = 150;
 
 /**
  * Served when LaunchDarkly is unreachable or the config is missing. Like every

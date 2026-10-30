@@ -1,8 +1,8 @@
 import type { LDContext } from '@launchdarkly/node-server-sdk';
 import { LDFeedbackKind, type LDAIClient, type LDAIMetrics, type LDMessage } from '@launchdarkly/server-sdk-ai';
 import type Anthropic from '@anthropic-ai/sdk';
-import { compactCatalog, findRecommendedProducts } from './catalog.js';
-import { AI_CONFIGS, ASSISTANT_FALLBACK, ERROR_REPLY, FALLBACK_REPLY, LIMITS, METRIC_EVENTS } from './config.js';
+import { basketValue, compactCatalog, findRecommendedProducts } from './catalog.js';
+import { AI_CONFIGS, ASSISTANT_FALLBACK, ERROR_REPLY, FALLBACK_REPLY, FREE_SHIPPING_MIN, LIMITS, METRIC_EVENTS } from './config.js';
 import { BadRequest, shopperContext } from './shopper.js';
 
 /**
@@ -24,6 +24,8 @@ export interface AssistantDeps {
   anthropic: { messages: { create(params: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message> } };
   /** Wraps a tracker's resumption token so the browser can send feedback later without being able to forge it. */
   tokens: { sign(token: string): string; verify(signed: string): string | null };
+  /** Clock for the response-time metric; tests pass a fake. Defaults to Date.now. */
+  now?: () => number;
 }
 
 export interface Turn {
@@ -142,6 +144,8 @@ export async function answer(deps: AssistantDeps, body: unknown): Promise<Assist
   const { variationKey, modelName } = tracker.getTrackData();
   const { system, messages } = toAnthropicMessages(config.messages ?? [], history, message);
 
+  const now = deps.now ?? Date.now;
+  const started = now();
   let response: Anthropic.Message;
   try {
     response = await tracker.trackMetricsOf(toMetrics, () =>
@@ -171,11 +175,17 @@ export async function answer(deps: AssistantDeps, body: unknown): Promise<Assist
     .trim();
   const products = findRecommendedProducts(reply);
 
-  // 4. Experiment metric: did this answer point the shopper at something we sell?
-  //    Measured from the real reply, server-side, with the same context that was
-  //    evaluated, so LaunchDarkly credits the right variation.
+  // 4. Experiment metrics, measured from the real reply, server-side, with the same
+  //    context that was evaluated, so LaunchDarkly credits the right variation.
+  //    Guardrail: how long the shopper waited for this answer.
+  deps.ld.track(METRIC_EVENTS.responseTime, context, { variationKey }, now() - started);
   if (products.length > 0) {
-    deps.ld.track(METRIC_EVENTS.recommendedProduct, context, { productIds: products, variationKey });
+    // Did this answer point the shopper at something we sell, and what would that kit cost?
+    const basket = basketValue(products);
+    const data = { productIds: products, basket, variationKey };
+    deps.ld.track(METRIC_EVENTS.recommendedProduct, context, data);
+    deps.ld.track(METRIC_EVENTS.basketValue, context, data, basket);
+    if (basket >= FREE_SHIPPING_MIN) deps.ld.track(METRIC_EVENTS.freeShippingBasket, context, data);
   }
 
   return {

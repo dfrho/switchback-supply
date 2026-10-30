@@ -39,6 +39,8 @@ function fakeDeps(options: { enabled?: boolean; reply?: string; fail?: boolean; 
     ld: { track: vi.fn() },
     anthropic: { messages: { create } },
     tokens: createTokenSigner('test-secret'),
+    // A fake clock: the model call "takes" 1,500 ms.
+    now: vi.fn<() => number>().mockReturnValueOnce(10_000).mockReturnValueOnce(11_500),
   };
   return { deps, tracker, create };
 }
@@ -132,19 +134,38 @@ describe('answer', () => {
     expect(extract({ usage: { input_tokens: 10, output_tokens: 5 } } as never)).toEqual({ success: true, tokens: { input: 10, output: 5, total: 15 } });
   });
 
-  it('sends the experiment event only when a real product is recommended', async () => {
+  it('sends the product and kit events only when a real product is recommended', async () => {
     const hit = fakeDeps();
     await answer(hit.deps, { message: 'Hi', shopper });
-    expect(hit.deps.ld.track).toHaveBeenCalledWith(
-      METRIC_EVENTS.recommendedProduct,
-      expect.objectContaining({ key: 'shopper-gold-001' }),
-      { productIds: ['ridgeline-45'], variationKey: 'control' },
-    );
+    const data = { productIds: ['ridgeline-45'], basket: 219, variationKey: 'control' };
+    const ctx = expect.objectContaining({ key: 'shopper-gold-001' });
+    expect(hit.deps.ld.track).toHaveBeenCalledWith(METRIC_EVENTS.recommendedProduct, ctx, data);
+    expect(hit.deps.ld.track).toHaveBeenCalledWith(METRIC_EVENTS.basketValue, ctx, data, 219);
 
     const miss = fakeDeps({ reply: 'Layers are your friend. Also see [Moon boots](/products/moon-boots).' });
     const result = await answer(miss.deps, { message: 'Hi', shopper });
     expect(result.products).toEqual([]);
-    expect(miss.deps.ld.track).not.toHaveBeenCalled();
+    const sent = vi.mocked(miss.deps.ld.track).mock.calls.map((call) => call[0]);
+    expect(sent).toEqual([METRIC_EVENTS.responseTime]);
+  });
+
+  it('sends the free-shipping event only when the kit totals $150 or more', async () => {
+    // $219 pack: ships free.
+    const big = fakeDeps();
+    await answer(big.deps, { message: 'Hi', shopper });
+    expect(vi.mocked(big.deps.ld.track).mock.calls.map((call) => call[0])).toContain(METRIC_EVENTS.freeShippingBasket);
+
+    // $38 bottle plus $42 filter: $80, does not.
+    const small = fakeDeps({ reply: 'Take the [bottle](/products/canyon-bottle) and the [filter](/products/spring-filter).' });
+    await answer(small.deps, { message: 'Hi', shopper });
+    expect(small.deps.ld.track).toHaveBeenCalledWith(METRIC_EVENTS.basketValue, expect.anything(), expect.anything(), 80);
+    expect(vi.mocked(small.deps.ld.track).mock.calls.map((call) => call[0])).not.toContain(METRIC_EVENTS.freeShippingBasket);
+  });
+
+  it('sends the response time of every answered question, in milliseconds', async () => {
+    const { deps } = fakeDeps();
+    await answer(deps, { message: 'Hi', shopper });
+    expect(deps.ld.track).toHaveBeenCalledWith(METRIC_EVENTS.responseTime, expect.anything(), { variationKey: 'control' }, 1500);
   });
 
   it('serves the fallback reply without calling Claude when the config is off', async () => {

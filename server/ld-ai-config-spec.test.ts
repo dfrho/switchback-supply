@@ -20,13 +20,29 @@ describe('AgentControl setup spec stays in step with the server', () => {
     expect(spec.RECOMMENDED_PRODUCT_METRIC.isNumeric).toBe(false);
   });
 
-  it('has three variations, each changing one thing from Control', () => {
-    const [control, bestPick, sonnet] = spec.VARIATIONS;
+  it("defines iteration 2's metrics on the server's event keys, in the right direction", () => {
+    const byEvent = Object.fromEntries(spec.BASKET_METRICS.map((m) => [m.eventKey, m]));
+    expect(byEvent[METRIC_EVENTS.freeShippingBasket]).toMatchObject({ isNumeric: false, successCriteria: 'HigherThanBaseline' });
+    expect(byEvent[METRIC_EVENTS.basketValue]).toMatchObject({ isNumeric: true, unit: 'dollars', successCriteria: 'HigherThanBaseline' });
+    // Lower is better, and a shopper without an answer must not count as 0 ms.
+    expect(byEvent[METRIC_EVENTS.responseTime]).toMatchObject({
+      isNumeric: true,
+      unit: 'milliseconds',
+      successCriteria: 'LowerThanBaseline',
+      eventDefault: { disabled: true },
+    });
+  });
+
+  it('has four variations, each changing one thing from Control', () => {
+    const [control, bestPick, sonnet, kit] = spec.VARIATIONS;
     expect(spec.DEFAULT_VARIATION_KEY).toBe(control.key);
-    expect(bestPick.model).toBe(control.model);
-    expect(bestPick.prompt).not.toBe(control.prompt);
+    for (const promptChange of [bestPick, kit]) {
+      expect(promptChange.model).toBe(control.model);
+      expect(promptChange.prompt).not.toBe(control.prompt);
+    }
     expect(sonnet.prompt).toBe(control.prompt);
     expect(sonnet.model).not.toBe(control.model);
+    expect(new Set(spec.VARIATIONS.map((v) => v.key)).size).toBe(4);
   });
 
   it('gives every prompt the catalog variable and product link format', () => {

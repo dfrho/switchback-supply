@@ -9,8 +9,9 @@
  *   3. The hero's targeting: individual target, three rules in order, default false, flag On
  *      (plus Part 1's checkout-completed and checkout-order-value metrics)
  *   4. AgentControl (formerly AI Configs): Claude model configs if your project lacks them,
- *      the shopping-assistant config with three variations, and its default rule (Control)
- *   5. The assistant-recommended-product metric for the experiment
+ *      the shopping-assistant config with four variations, and its default rule (Control)
+ *   5. The assistant's experiment metrics: recommended a product (iteration 1), and kit ships
+ *      free, kit value, and response time (iteration 2)
  *
  * It is safe to run again: it replaces targeting instead of appending to it, and
  * updates a variation only when its prompt or model changed. While an experiment
@@ -37,7 +38,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BETA_SEGMENT, HERO_FLAG, HERO_TARGETING, heroTargetingInstructions } from './ld-targeting.mjs';
-import { AI_CONFIG, DEFAULT_VARIATION_KEY, MODELS, RECOMMENDED_PRODUCT_METRIC, VARIATIONS, variationBody } from './ld-ai-config.mjs';
+import { AI_CONFIG, BASKET_METRICS, DEFAULT_VARIATION_KEY, MODELS, RECOMMENDED_PRODUCT_METRIC, VARIATIONS, variationBody } from './ld-ai-config.mjs';
 import { CHECKOUT_METRICS } from './ld-metrics.mjs';
 
 const API_VERSION = '20240415';
@@ -119,6 +120,10 @@ function printPlan() {
   step(`AgentControl targeting in ${ENVIRONMENT}: default rule serves "${DEFAULT_VARIATION_KEY}"`);
   step(`Metric ${RECOMMENDED_PRODUCT_METRIC.key}: create if missing`);
   console.log(JSON.stringify(RECOMMENDED_PRODUCT_METRIC, null, 2));
+  for (const metric of BASKET_METRICS) {
+    step(`Metric ${metric.key}: create if missing`);
+    console.log(JSON.stringify(metric, null, 2));
+  }
 }
 
 /** Creates a metric if the project does not have it yet. Metrics are project-wide, not per environment. */
@@ -225,6 +230,7 @@ async function setupAssistant() {
   }
 
   await ensureMetric(RECOMMENDED_PRODUCT_METRIC);
+  for (const metric of BASKET_METRICS) await ensureMetric(metric);
 }
 
 async function main() {
