@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useBoolVariation, useLDClient } from '@launchdarkly/react-sdk';
-import { FALLBACKS, FLAGS } from '../launchdarkly/config';
+import { FALLBACKS, FLAGS, METRIC_EVENTS } from '../launchdarkly/config';
 import { useReleaseLog } from '../state/ReleaseLog';
 import { useToast } from '../state/Toasts';
 import { useCart } from '../state/Cart';
@@ -9,7 +9,7 @@ import { useShopper } from '../state/Shopper';
 import ClassicCheckout from './ClassicCheckout';
 import NewCheckout from './NewCheckout';
 import ProductImage from './ProductImage';
-import { formatPrice } from '../data/catalog';
+import { formatPrice, shippingFor } from '../data/catalog';
 
 /**
  * PART 1: RELEASE AND REMEDIATE
@@ -81,6 +81,15 @@ export default function CheckoutDrawer() {
   const [confirmation, setConfirmation] = useState<string | null>(null);
 
   const handlePlaced = (orderId: string) => {
+    // 3. MEASURE: tell LaunchDarkly an order was placed, with the order total as the
+    //    metric value. LaunchDarkly credits the event to the checkout this shopper was
+    //    served, so metrics on it compare Classic and Express checkout (conversion and
+    //    order value) and can guard a rollout. No personal data goes in the event.
+    ldClient.track(
+      METRIC_EVENTS.checkoutCompleted,
+      { checkout: showNewCheckout ? 'express' : 'classic', items: count },
+      subtotal + shippingFor(subtotal),
+    );
     setConfirmation(orderId);
     clear();
   };

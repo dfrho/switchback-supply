@@ -103,10 +103,17 @@ export function effortFrom(parameters: Record<string, unknown> | undefined): Eff
   return EFFORTS.includes(requested as Effort) ? (requested as Effort) : LIMITS.defaultEffort;
 }
 
-function toMetrics(message: Anthropic.Message): LDAIMetrics {
+/**
+ * Reads token usage from Claude's response for the tracker. There is no LaunchDarkly
+ * provider package for Anthropic, so this small extractor is the documented pattern.
+ * A safety decline (stop_reason "refusal") returns normally but gives the shopper no
+ * answer, so it counts as an error: trackMetricsOf then records an error instead of
+ * a success, and Monitoring shows declines against the variation that produced them.
+ */
+export function toMetrics(message: Anthropic.Message): LDAIMetrics {
   const input = message.usage.input_tokens;
   const output = message.usage.output_tokens;
-  return { success: true, tokens: { input, output, total: input + output } };
+  return { success: message.stop_reason !== 'refusal', tokens: { input, output, total: input + output } };
 }
 
 export async function answer(deps: AssistantDeps, body: unknown): Promise<AssistantReply> {

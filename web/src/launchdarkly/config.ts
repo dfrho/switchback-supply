@@ -54,6 +54,17 @@ export const FALLBACKS = {
 } as const;
 
 /**
+ * Custom events the store sends with ldClient.track(). A metric built on one of
+ * these event keys can measure any flag the same shopper was served, so a release
+ * reports business results, not just "on" or "off".
+ * RECREATE THESE METRICS: `npm run ld:setup` creates them (scripts/ld-metrics.mjs).
+ */
+export const METRIC_EVENTS = {
+  /** Sent when an order is placed, with the order total in US dollars as the value. */
+  checkoutCompleted: 'checkout-completed',
+} as const;
+
+/**
  * The Central region used by the "Gold members in Central states" rule.
  * Keep this list in sync with the rule's "state is one of" values in LaunchDarkly.
  */

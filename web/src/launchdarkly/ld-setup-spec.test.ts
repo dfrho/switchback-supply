@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as spec from '../../../scripts/ld-targeting.mjs';
-import { CENTRAL_STATES, FALLBACKS, FLAGS, HERO_TARGETING } from './config';
+import { CHECKOUT_METRICS } from '../../../scripts/ld-metrics.mjs';
+import { CENTRAL_STATES, FALLBACKS, FLAGS, HERO_TARGETING, METRIC_EVENTS } from './config';
 
 /**
  * scripts/ld-targeting.mjs is what `npm run ld:setup` writes to LaunchDarkly.
@@ -38,5 +39,17 @@ describe('LaunchDarkly setup spec stays in step with the app', () => {
   it('defines the beta segment on the betaTester attribute as a boolean', () => {
     expect(spec.BETA_SEGMENT.key).toBe('beta-shoppers');
     expect(spec.BETA_SEGMENT.rules[0].clauses[0]).toMatchObject({ attribute: 'betaTester', op: 'in', values: [true] });
+  });
+});
+
+describe('Part 1 metrics stay in step with the checkout event', () => {
+  it('reads the event the checkout drawer sends', () => {
+    expect(CHECKOUT_METRICS.map((m) => m.eventKey)).toEqual([METRIC_EVENTS.checkoutCompleted, METRIC_EVENTS.checkoutCompleted]);
+  });
+
+  it('defines one conversion metric and one order value metric with the fields LaunchDarkly requires', () => {
+    const [conversion, value] = CHECKOUT_METRICS;
+    expect(conversion).toMatchObject({ kind: 'custom', isNumeric: false, successCriteria: 'HigherThanBaseline' });
+    expect(value).toMatchObject({ kind: 'custom', isNumeric: true, unit: 'dollars', successCriteria: 'HigherThanBaseline' });
   });
 });
