@@ -11,7 +11,7 @@ Switchback Supply plays the role of "ABC Company" from the exercise brief. Each 
 | Storefront | All | 25-product catalog with color and size variants, product pages, a persistent cart | Done |
 | **Part 1: Release and Remediate** | Engineering manager | Flag-wrapped checkout, live listener, test in production, flag trigger remediation, checkout metrics | Done |
 | **Part 2: Target** | Developer | Winter-Ready hero behind a flag, shopper contexts with attributes, individual and rule-based targeting | Done |
-| [**Extra credit: AI Configs**](#extra-credit-ai-configs) | AI product manager | AgentControl (formerly AI Configs) shopping assistant on Anthropic Claude: prompt and model changed live, a kill switch, Monitoring, and an experiment comparing a new prompt and a larger model | Built (experiment results to follow) |
+| [**Extra credit: AI Configs**](#extra-credit-ai-configs) | AI product manager | AgentControl (formerly AI Configs) shopping assistant on Anthropic Claude: prompt and model changed live, a kill switch, Monitoring, and an experiment asking whether a better prompt can match a larger model | Built (experiment results to follow) |
 
 ---
 
@@ -400,15 +400,16 @@ Switchback Supply is rolling out a chatbot, the **Trail guide**, that helps shop
 
 A **Trail guide** button in the header opens a chat panel on every page. Ask about a trip ("Two nights in Colorado in October. What should I pack?"). The guide answers using the store's real catalog. Each product it recommends appears as a card that links to its product page. Under every answer, a small label names the model and the variation that answered, so a change in LaunchDarkly is visible in the chat. Thumbs up and down buttons send feedback to LaunchDarkly.
 
-The config `shopping-assistant` has three variations. Each one changes a single thing from Control, so an experiment can tell which change made the difference:
+The config `shopping-assistant` has four variations. Each one changes a single thing from Control, so an experiment can tell which change made the difference:
 
 | Variation | Model | Prompt | What it tests |
 |---|---|---|---|
 | **Control** | Claude Haiku 5.5 | Guide: up to three products, one line each | The baseline |
 | **Treatment A** (`best-pick`) | Claude Haiku 5.5 | Best pick: one product, why it fits, one alternative, a follow-up question when details are missing | A prompt change only |
 | **Treatment B** (`sonnet`) | Claude Sonnet 5.5 | Guide (same as Control) | A model change only |
+| **Treatment C** (`bundle`) | Claude Haiku 5.5 | Kit: up to three products that work together for the whole trip, only what the trip needs, within any budget, and a free-shipping note at $150 | A prompt change only |
 
-The prompts live in [`scripts/ld-ai-config.mjs`](scripts/ld-ai-config.mjs). Both prompts tell the model to recommend only catalog products, using the catalog the server passes in as the `{{catalog}}` variable.
+The prompts live in [`scripts/ld-ai-config.mjs`](scripts/ld-ai-config.mjs). Every prompt tells the model to recommend only catalog products, using the catalog the server passes in as the `{{catalog}}` variable.
 
 ### Setup
 
@@ -456,27 +457,51 @@ To do the same by hand:
 4. **Turn the AI off.** Turn the config's targeting **Off**. The next question gets a polite fallback and a link to the shop, and no model is called. Turn it back on and the guide returns. This is Part 1's kill switch, applied to AI.
 5. **Show the data.** Open the **Monitoring** tab. It shows tokens, time to generate, generations, errors, cost, and satisfaction from the thumbs buttons, each broken out by variation. Data updates about once a minute.
 
-### The experiment: which change helps shoppers?
+### The experiment: can a better prompt match a bigger model?
 
-The brief's optional step: compare prompt and model variants on a metric that matters.
+The brief's optional step: compare prompt and model variants on a metric that matters. A larger model costs about 20 times as much per token as Haiku and answers more slowly. The question an AI product manager asks is whether a prompt change can get the bigger model's results at the smaller model's speed and price. The [experiment](https://launchdarkly.com/docs/home/experimentation) compares **Control**, **Treatment B** (Sonnet), and **Treatment C** (the kit prompt). Treatment A stays in the config but is not part of it.
 
-- **Primary metric, `assistant-recommended-product`:** did the reply point the shopper at something the store sells? The server checks every product link in a reply against the catalog. It drops invented products, then sends this event when at least one real product remains. LaunchDarkly credits the event to the variation that answered.
-- **Also watched:** time to generate, tokens, and cost from the Monitoring tab (a larger model may win on quality and lose on cost), and satisfaction from real visitors' thumbs.
+Every metric is measured on the server from the real reply, with the same context LaunchDarkly evaluated, so each event is credited to the variation that answered. The server first checks every product link against the catalog and drops invented products.
+
+| Metric | Kind | Measures |
+|---|---|---|
+| `assistant-free-shipping-basket` (**primary**) | Conversion | The real products in the reply total $150 or more, the store's free-shipping threshold. Retailers set that threshold to raise order value, so a guide that suggests a complete kit helps both the shopper and the store |
+| `assistant-basket-value` | Value, dollars | The total price of the recommended products. A reply that recommends nothing counts as $0 |
+| `assistant-response-time` ([guardrail](https://launchdarkly.com/docs/home/metrics/guardrail-metrics)) | Value, milliseconds, lower is better | How long the shopper waited. A shopper without an answer is left out instead of counting as an instant reply |
+| `assistant-recommended-product` | Conversion | The reply linked at least one real product |
+
+Monitoring adds tokens and cost per variation, and real visitors' thumbs add satisfaction.
+
+**A recommended kit is not a sale.** These metrics measure what the guide suggests, and the kit prompt is told to pick only what the trip needs and to respect any budget. A production test would add an add-to-cart event from the chat's product cards and a quality signal, such as thumbs or an [online evaluation](https://launchdarkly.com/docs/home/agentcontrol/online-evaluations), so the experiment can never reward upselling over help.
 
 **Create the experiment** (once Step A2 is done):
 
-1. Go to **Experiments > Create experiment** and choose to experiment on the `shopping-assistant` AgentControl config.
-2. **Audience:** the default rule. **Variations:** all three, Control as the baseline, split evenly.
-3. **Primary metric:** `assistant-recommended-product`. Use Bayesian statistics, which is the default.
-4. Start the experiment.
+1. Open **Agents > Configs > Shopping assistant**. In the right-hand panel, under **Experiments**, click **Add experiment**. (Or go to **Experimentation > Experiments > Create experiment**.) If an experiment is already running on this config, open it and use **Edit design** instead: LaunchDarkly starts a new iteration with the changes.
+2. **Name and hypothesis:** for example "Trail guide: kit prompt vs larger model" and "A kit prompt on Haiku suggests free-shipping kits more often than Control, with no slower answers."
+3. **Variations and audience targeting:**
+   - Assignment method: **LaunchDarkly flag or config**.
+   - Flag or config: `shopping-assistant`.
+   - Randomize by: **user**.
+4. **Audience allocation:**
+   - Percent of user contexts in this experiment: **100%**.
+   - Variation served to contexts outside the experiment: **Control**.
+5. **Variations split:**
+   - **Control**, **Treatment B**, and **Treatment C** at about 33% each. Leave Treatment A out.
+   - Control: **Control: Haiku 5.5, guide prompt**.
+6. **Metrics:**
+   - Metric source: **LaunchDarkly hosted**.
+   - Primary: **Assistant kit ships free**.
+   - Also add **Assistant kit value**, **Assistant response time**, and **Assistant recommended a product**.
+7. **Statistical approach:** choose **[Bayesian](https://launchdarkly.com/docs/home/experimentation/bayesian)**, with the 95% threshold. The form starts on Frequentist with sequential testing. Bayesian reports each variation's probability of being best, which is easier to act on with a few hundred conversations per variation.
+8. When the banner says **Ready to start** and the health check says **Healthy**, click **Save**, then **Start**.
 
-LaunchDarkly cannot run an experiment and a guarded rollout on the same config at the same time. The dashboard's labels may differ slightly from these steps.
+LaunchDarkly cannot run an experiment and a guarded rollout on the same config at the same time. To stop an iteration, LaunchDarkly asks you to declare a winner; when nothing should ship, declare Control and say why.
 
 **Synthetic shoppers.** A demo store has no real traffic, and an experiment needs hundreds of conversations per variation. [`scripts/assistant-traffic.mjs`](scripts/assistant-traffic.mjs) plays those shoppers:
 
 - Each one asks a realistic gear question through the store's own `/api/assistant`.
 - Every answer is a **real Claude reply** from the variation LaunchDarkly assigned.
-- The metric is measured from that reply, exactly as it is for a person.
+- The metrics are measured from that reply, exactly as they are for a person.
 - Only the shoppers are simulated. They are labeled with the key `synthetic-shopper-NNNN` and the context attribute `trafficSource: "synthetic"`.
 
 ```bash
@@ -485,14 +510,14 @@ npm run assistant:traffic -- --base-url http://localhost:5173 --count 10   # smo
 npm run assistant:traffic -- --base-url https://your-site.vercel.app --count 900 --start 1
 ```
 
-About 900 conversations (roughly 300 per variation) cost about $3 at current Claude prices; the script prints its estimate first. Use a new `--start` range for each run, because LaunchDarkly keeps each shopper key in the same variation. Experiment results refresh periodically, so start the traffic a day before you need a decision.
+About 900 conversations (roughly 300 per variation) cost about $3 at current Claude prices; the script prints its estimate first, and at the end a summary per variation: answers, how many recommended a product, how many kits ship free, the average kit, and the average wait. Use a new `--start` range for each run, because LaunchDarkly keeps each shopper key in the same variation. Experiment results refresh periodically, so start the traffic a day before you need a decision.
 
 ### How it works
 
 | File | Role |
 |---|---|
-| [`server/assistant.ts`](server/assistant.ts) | Reads the config for each shopper and request, maps its messages to Anthropic's Messages API, calls Claude, tracks the run, sends the experiment event, and records feedback |
-| [`server/config.ts`](server/config.ts) | Config key, metric event key, the safe fallback (disabled), and request limits |
+| [`server/assistant.ts`](server/assistant.ts) | Reads the config for each shopper and request, maps its messages to Anthropic's Messages API, calls Claude, tracks the run, sends the experiment events (product recommended, kit value, free-shipping kit, response time), and records feedback |
+| [`server/config.ts`](server/config.ts) | Config key, metric event keys, the free-shipping threshold, the safe fallback (disabled), and request limits |
 | [`server/runtime.ts`](server/runtime.ts) | One LaunchDarkly server SDK client and one Anthropic client per server process |
 | [`server/shopper.ts`](server/shopper.ts) | Validates the shopper sent by the browser and builds the context with the same `toLDContext()` the browser uses |
 | [`api/assistant.ts`](api/assistant.ts), [`api/assistant-feedback.ts`](api/assistant-feedback.ts) | Vercel Functions. They flush analytics events after responding with `waitUntil` |
@@ -520,7 +545,7 @@ Two layers of automated tests run on every pull request.
 
 | Layer | Tool | What it proves |
 |---|---|---|
-| Unit and component (109 tests) | Vitest + React Testing Library | The assistant's server code (Anthropic message mapping, parameter filtering, fallbacks, product-link checks, the experiment event, declines reported as errors, signed feedback tokens), the AgentControl setup staying in step with the server, the chat panel, checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the `checkout-completed` event with the order total, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
+| Unit and component (113 tests) | Vitest + React Testing Library | The assistant's server code (Anthropic message mapping, parameter filtering, fallbacks, product-link checks, the experiment events (kit value, free-shipping kits, response time), declines reported as errors, signed feedback tokens), the AgentControl setup staying in step with the server, the chat panel, checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the `checkout-completed` event with the order total, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
 | End to end (67 test runs) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus both flags: **release and roll back mid-checkout with no page reload**; every Part 2 persona, rule, and attribute edit with the reason shown; a targeting change reaching the shopper live; contexts never in URLs and the private email never in events; the `checkout-completed` event carrying the order total; fallbacks when LaunchDarkly is unreachable; and the trail guide's answers, product cards, fallback, and feedback (with the server stubbed) |
 
 ### Phone layout
@@ -631,7 +656,7 @@ switchback-supply/
 - [Metrics](https://launchdarkly.com/docs/home/metrics), [Custom numeric metrics](https://launchdarkly.com/docs/home/metrics/custom-numeric), and [REST API: create metric](https://launchdarkly.com/docs/api/metrics/create-metric)
 - [AgentControl (formerly AI Configs)](https://launchdarkly.com/docs/home/agentcontrol), [Creating configs](https://launchdarkly.com/docs/home/agentcontrol/create), [Variations](https://launchdarkly.com/docs/home/agentcontrol/create-variation), [Targeting](https://launchdarkly.com/docs/home/agentcontrol/target), and [Monitoring](https://launchdarkly.com/docs/home/agentcontrol/monitor)
 - [Node.js AI SDK (stable)](https://launchdarkly.com/docs/sdk/ai/node-js-legacy), the newer [Node.js AI SDK (beta)](https://launchdarkly.com/docs/sdk/ai/node-js), and [Tracking AI metrics](https://launchdarkly.com/docs/sdk/features/ai-metrics)
-- [Experiments with AgentControl](https://launchdarkly.com/docs/home/agentcontrol/experimentation), [Online evaluations](https://launchdarkly.com/docs/home/agentcontrol/online-evaluations), and [Sending custom events](https://launchdarkly.com/docs/sdk/features/events)
+- [Experimentation](https://launchdarkly.com/docs/home/experimentation), [Bayesian results](https://launchdarkly.com/docs/home/experimentation/bayesian), [Guardrail metrics](https://launchdarkly.com/docs/home/metrics/guardrail-metrics), [Experiments with AgentControl](https://launchdarkly.com/docs/home/agentcontrol/experimentation), [Online evaluations](https://launchdarkly.com/docs/home/agentcontrol/online-evaluations), and [Sending custom events](https://launchdarkly.com/docs/sdk/features/events)
 - [Node.js server-side SDK](https://launchdarkly.com/docs/sdk/server-side/node-js) and the [AgentControl REST API](https://launchdarkly.com/docs/api/agentcontrol)
 
 ## About the catalog

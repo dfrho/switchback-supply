@@ -47,10 +47,10 @@ Production also holds 3 early test answers and 1 thumbs up from before `LD_SDK_K
 | Item | Value |
 |---|---|
 | Config | `shopping-assistant`, Completion mode |
-| Variations | `control` (Claude Haiku 5.5, guide prompt), `best-pick` (Haiku 5.5, best-pick prompt), `sonnet` (Claude Sonnet 5.5, guide prompt); parameters `max_tokens` 1024, `effort` low |
+| Variations | `control` (Claude Haiku 5.5, guide prompt), `best-pick` (Haiku 5.5, best-pick prompt), `sonnet` (Claude Sonnet 5.5, guide prompt), `bundle` (Haiku 5.5, kit prompt; created by the next `ld:setup` run on branch `feat/bundle-experiment`); parameters `max_tokens` 1024, `effort` low |
 | Default rule | Control (until the experiment takes over the default rule) |
-| Metric | `assistant-recommended-product`, custom conversion (binary), sent server-side |
-| Experiment | Planned: all three variations on the default rule, Bayesian, fed by `npm run assistant:traffic` (synthetic shoppers `synthetic-shopper-NNNN`, `trafficSource: synthetic`) |
+| Metrics | `assistant-recommended-product` (conversion). Iteration 2, created by the next `ld:setup` run: `assistant-free-shipping-basket` (conversion, primary), `assistant-basket-value` (value, dollars, $0 when nothing is recommended), `assistant-response-time` (value, milliseconds, lower is better, shoppers without events excluded). All sent server-side |
+| Experiment | "Trail guide: prompt vs model" (Test), started October 30, 2026: 100% of user contexts on the default rule, Control / Treatment A / Treatment B at 33.34 / 33.33 / 33.33, primary metric `assistant-recommended-product`, Bayesian 95%, shrinkage priors. Fed by `npm run assistant:traffic` against the live site (smoke test shoppers 1 to 10, full run 11 to 910). Result, not for the README (David's decision): Sonnet won on the saturated primary metric (+1.54 points, 279 of 279 vs 324 of 328), best-pick 87%. A 30-reply check (shoppers 911 to 940, out-of-catalog questions) showed every variation answers honestly; Sonnet always lists adjacent gear. Plan: stop iteration 1 with Control as the winner, then iteration 2 (Control, Sonnet, `bundle`; primary `assistant-free-shipping-basket`, guardrail `assistant-response-time`). Next shopper number: 941 |
 
 ## Segment
 

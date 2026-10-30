@@ -1,6 +1,6 @@
 # Roadmap
 
-Status as of October 29, 2026. Work in this order. Each item is its own branch and PR.
+Status as of October 30, 2026. Work in this order. Each item is its own branch and PR.
 
 ## Done
 
@@ -13,7 +13,9 @@ Status as of October 29, 2026. Work in this order. Each item is its own branch a
 | #5 | Part 2: Target (Winter-Ready hero, contexts, individual and rule-based targeting, segment, evaluation reasons, `npm run ld:setup`) |
 | #6 | README phone layout notes |
 | #7 | Claude Code guidance: CLAUDE.md, rules, and roadmap |
-| next | Vercel deploy: live at https://web-puce-kappa-92.vercel.app (Test client-side ID). Verified: SDK streaming, Gold persona matches rule 3 with real targeting. |
+| #8 | Vercel deploy: live at https://web-puce-kappa-92.vercel.app (Test client-side ID) |
+| #9 | Extra credit: AgentControl shopping assistant on Claude, experiment iteration 1 |
+| #10 | Checkout metrics for `release-new-checkout`; model refusals tracked as errors |
 
 Dropped by decision on October 29: the observability plus guarded rollout extra credit (not in the brief). The README mentions guarded rollouts only as the next rung of the remediation ladder.
 
@@ -24,7 +26,7 @@ Branch `feat/ai-shopping-assistant` (code done October 29; awaiting live verific
 Decisions:
 - Stable SDK: `@launchdarkly/server-sdk-ai` v2 (maintenance mode) with `@launchdarkly/node-server-sdk` and `@anthropic-ai/sdk`. Map messages to Anthropic and call the tracker manually. The README names the beta `@launchdarkly/ai-node` plus `@launchdarkly/ai-claude-messages` as the direction (open beta, auto metrics, no fallback argument, no documented feedback API).
 - Catalog gear advisor: grounded in `data/catalog.json` through a compact `{{catalog}}` prompt variable; recommends products as `/products/<id>` links that the server validates against the catalog.
-- Completion mode config `shopping-assistant`, three variations: Control (Haiku 5.5, current prompt), Treatment A (Haiku 5.5, new prompt), Treatment B (Sonnet 5.5, current prompt). Each treatment changes one thing.
+- Completion mode config `shopping-assistant`, four variations: Control (Haiku 5.5, guide prompt), Treatment A (Haiku 5.5, best-pick prompt), Treatment B (Sonnet 5.5, guide prompt), Treatment C `bundle` (Haiku 5.5, kit prompt, added for iteration 2). Each treatment changes one thing.
 - Anthropic API version 2026-10-21 rejects `temperature`, `top_p`, `top_k` on current models and requires `max_tokens`: forward only `max_tokens` (read `max_tokens` or `maxTokens`).
 - Observed October 29: a new config's default rule pointed at the first variation created (Control), in every environment, not at "disabled" as one research source claimed. Setup still sets it explicitly.
 - Observed October 29: the first live answers landed in Production because `LD_SDK_KEY` was Production's key; `ld:setup` now warns about this.
@@ -39,7 +41,9 @@ Done when: chat panel on every page, a prompt or model change in LaunchDarkly ch
 
 ## 2. Experiment results
 
-Branch `docs/ai-experiment-results`, Sunday November 1. README results with a screenshot, the decision, and a "synthetic traffic, real replies" label.
+Iteration 1 (recommended-a-product metric) saturated near 99%; LaunchDarkly picked Sonnet by 1.5 points, which does not justify its cost. Not reported in the README (David's decision); the story is in his private interview notes.
+
+Iteration 2, branch `feat/bundle-experiment`: Control vs Sonnet vs the `bundle` kit prompt; primary `assistant-free-shipping-basket`, plus `assistant-basket-value`, guardrail `assistant-response-time`. Order: merge, `ld:setup`, stop iteration 1 (declare Control), Edit design for iteration 2, smoke test, then 900 shoppers from 941. Then a results PR on Sunday November 1: README results with a screenshot, the decision, and a "synthetic traffic, real replies" label.
 
 ## 3. Demo runbook and rehearsal
 

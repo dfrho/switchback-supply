@@ -22,6 +22,13 @@ export const PRODUCT_IDS: ReadonlySet<string> = new Set(products.map((p) => p.id
 
 export const PRODUCT_NAMES: ReadonlyMap<string, string> = new Map(products.map((p) => [p.id, p.name]));
 
+const PRODUCT_PRICES: ReadonlyMap<string, number> = new Map(products.map((p) => [p.id, p.price]));
+
+/** Total price, in dollars, of one of each recommended product: the kit the reply suggested. */
+export function basketValue(productIds: string[]): number {
+  return productIds.reduce((sum, id) => sum + (PRODUCT_PRICES.get(id) ?? 0), 0);
+}
+
 export function compactCatalog(): string {
   return products
     .map((p) => {

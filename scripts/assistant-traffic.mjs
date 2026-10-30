@@ -30,6 +30,8 @@
  *   --dry-run      Print the plan and the cost estimate, call nothing
  */
 
+import { readFileSync } from 'node:fs';
+
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
 const option = (name, fallback) => {
@@ -42,6 +44,12 @@ const COUNT = Number(option('count', '10'));
 const START = Number(option('start', '1'));
 const CONCURRENCY = Number(option('concurrency', '2'));
 const DRY_RUN = flag('dry-run');
+
+// Prices for the summary's kit totals. The server measures the real metric the same way.
+const catalog = JSON.parse(readFileSync(new URL('../data/catalog.json', import.meta.url), 'utf8'));
+const PRICES = new Map(catalog.products.map((p) => [p.id, p.price]));
+const FREE_SHIPPING_MIN = 150;
+const kitValue = (ids = []) => ids.reduce((sum, id) => sum + (PRICES.get(id) ?? 0), 0);
 
 /** Real questions a shopper might ask an outdoor store. Some have a clear catalog answer; some do not. */
 const QUESTIONS = [
@@ -148,7 +156,7 @@ async function main() {
       try {
         const r = await ask(n);
         results.push(r);
-        const label = r.source === 'claude' ? `${r.variation}, ${r.products.length} product(s)` : r.source ?? `HTTP ${r.status}`;
+        const label = r.source === 'claude' ? `${r.variation}, ${r.products.length} product(s), kit $${kitValue(r.products)}` : r.source ?? `HTTP ${r.status}`;
         console.log(`  #${n} ${label}, ${r.ms} ms`);
       } catch (error) {
         results.push({ n, source: 'network' });
@@ -164,7 +172,13 @@ async function main() {
   for (const [variation, rows] of Object.entries(byVariation)) {
     const recommended = rows.filter((r) => r.products?.length > 0).length;
     const avgMs = Math.round(rows.reduce((sum, r) => sum + (r.ms ?? 0), 0) / rows.length);
-    console.log(`  ${variation}: ${rows.length} answers, ${recommended} recommended a product (${Math.round((100 * recommended) / rows.length)}%), avg ${avgMs} ms`);
+    const shipsFree = rows.filter((r) => kitValue(r.products) >= FREE_SHIPPING_MIN).length;
+    const avgKit = Math.round(rows.reduce((sum, r) => sum + kitValue(r.products), 0) / rows.length);
+    const pct = (part) => Math.round((100 * part) / rows.length);
+    console.log(
+      `  ${variation}: ${rows.length} answers, ${recommended} recommended a product (${pct(recommended)}%), ` +
+        `kit ships free ${shipsFree} (${pct(shipsFree)}%), avg kit $${avgKit}, avg ${avgMs} ms`,
+    );
   }
   if (results.every((r) => r.source !== 'claude')) {
     console.log('\nNo model answers. Check that the AgentControl config exists and is On, and that LD_SDK_KEY and ANTHROPIC_API_KEY are set where the store runs.');
