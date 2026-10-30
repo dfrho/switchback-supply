@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type Anthropic from '@anthropic-ai/sdk';
 import { LDFeedbackKind, type LDAICompletionConfig, type LDAIConfigTracker } from '@launchdarkly/server-sdk-ai';
-import { answer, effortFrom, maxTokensFrom, recordFeedback, toAnthropicMessages, type AssistantDeps } from './assistant.js';
+import { answer, effortFrom, maxTokensFrom, recordFeedback, toAnthropicMessages, toMetrics, type AssistantDeps } from './assistant.js';
 import { findRecommendedProducts } from './catalog.js';
 import { ERROR_REPLY, FALLBACK_REPLY, METRIC_EVENTS } from './config.js';
 import { createTokenSigner } from './tokens.js';
@@ -166,6 +166,12 @@ describe('answer', () => {
     const result = await answer(deps, { message: 'Hi', shopper });
     expect(result).toMatchObject({ reply: ERROR_REPLY, source: 'error', products: [] });
     expect(deps.ld.track).not.toHaveBeenCalled();
+  });
+
+  it('reports a decline to Monitoring as an error, with its token usage', () => {
+    const usage = { input_tokens: 10, output_tokens: 2 };
+    expect(toMetrics({ stop_reason: 'refusal', usage } as never)).toEqual({ success: false, tokens: { input: 10, output: 2, total: 12 } });
+    expect(toMetrics({ stop_reason: 'end_turn', usage } as never).success).toBe(true);
   });
 
   it('rejects empty, oversized, and malformed requests', async () => {

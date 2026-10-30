@@ -9,7 +9,7 @@ Switchback Supply plays the role of "ABC Company" from the exercise brief. Each 
 | Section | Persona | What it shows | Status |
 |---|---|---|---|
 | Storefront | All | 25-product catalog with color and size variants, product pages, a persistent cart | Done |
-| **Part 1: Release and Remediate** | Engineering manager | Flag-wrapped checkout, live listener, test in production, flag trigger remediation | Done |
+| **Part 1: Release and Remediate** | Engineering manager | Flag-wrapped checkout, live listener, test in production, flag trigger remediation, checkout metrics | Done |
 | **Part 2: Target** | Developer | Winter-Ready hero behind a flag, shopper contexts with attributes, individual and rule-based targeting | Done |
 | [**Extra credit: AI Configs**](#extra-credit-ai-configs) | AI product manager | AgentControl (formerly AI Configs) shopping assistant on Anthropic Claude: prompt and model changed live, a kill switch, Monitoring, and an experiment comparing a new prompt and a larger model | Built (experiment results to follow) |
 
@@ -113,7 +113,7 @@ Now only `qa-tester-001` sees Express checkout. Everyone else still gets Classic
 
 ### Steps 6 to 8, the fast way: `npm run ld:setup`
 
-Steps 6 to 8 can be done by hand (below) or with one command. The script creates the hero flag and the `beta-shoppers` segment if they are missing, then sets the targeting exactly as in Step 8 and turns the flag On. It is safe to run again.
+Steps 6 to 8 can be done by hand (below) or with one command. The script creates the hero flag and the `beta-shoppers` segment if they are missing, then sets the targeting exactly as in Step 8 and turns the flag On. It also creates Part 1's two checkout metrics (see [Measuring the release](#3-measuring-the-release-the-checkout-completed-event)). It is safe to run again.
 
 1. Create an API access token: LaunchDarkly > **Organization settings** > **Authorization** > **Create token**, role **Writer**. It is shown once.
 2. Add it to `.env` (see Step 9) as `LD_API_TOKEN=...`. Like the trigger URL, it is never prefixed with `VITE_` and never committed.
@@ -267,11 +267,28 @@ return showNewCheckout ? <NewCheckout /> : <ClassicCheckout />;
 - The cleanup function unsubscribes with the same function reference, so listeners never pile up.
 - The fallback `false` means shoppers get the known-good Classic checkout if LaunchDarkly is ever unreachable.
 
-### 3. Contexts and test in production: `web/src/launchdarkly/contexts.ts`
+### 3. Measuring the release: the `checkout-completed` event
+
+A flag that can only say "on" or "off" cannot tell you whether the new checkout is better. When a shopper places an order, the drawer sends a [custom event](https://launchdarkly.com/docs/sdk/features/events) with the order total as its value:
+
+```tsx
+ldClient.track('checkout-completed', { checkout: 'express', items: 2 }, orderTotal);
+```
+
+`npm run ld:setup` builds two [metrics](https://launchdarkly.com/docs/home/metrics) on that one event ([`scripts/ld-metrics.mjs`](scripts/ld-metrics.mjs)):
+
+| Metric | Kind | Measures |
+|---|---|---|
+| `checkout-completed` | Conversion | Did the shopper place an order? |
+| `checkout-order-value` | [Value](https://launchdarkly.com/docs/home/metrics/custom-numeric), dollars | Order dollars per shopper. Shoppers who did not order count as $0, so it reflects both conversion and order size |
+
+LaunchDarkly credits each event to the checkout that shopper was served, so these metrics can compare Express with Classic in an experiment, or be watched by a guarded rollout. The event carries no personal data. To see events arrive, open **Metrics** in LaunchDarkly and check the metric's event activity, or watch **Live events**. (Ad blockers stop these events; see [Troubleshooting](#troubleshooting).)
+
+### 4. Contexts and test in production: `web/src/launchdarkly/contexts.ts`
 
 Guests get an anonymous context with a random, device-stable key (no personal data, and a consistent experience across visits). The QA tester has a fixed key, `qa-tester-001`, which is what individual targeting matches. The Release Console switches between them with `ldClient.identify()`, which swaps the context and refetches flag values without a reload.
 
-### 4. Remediation: `scripts/remediate.sh`
+### 5. Remediation: `scripts/remediate.sh`
 
 A `POST` to the Generic trigger URL with an optional JSON body (`eventName`, `url`) that labels the change in flag history. The script reads only `LD_TRIGGER_URL_CHECKOUT_OFF` from `.env` and never prints it.
 
@@ -280,6 +297,7 @@ A `POST` to the Generic trigger URL with an optional JSON body (`eventName`, `ur
 | To change | Edit |
 |---|---|
 | Flag key or fallback value | `web/src/launchdarkly/config.ts` |
+| Checkout metric event or metric definitions | `METRIC_EVENTS` in `web/src/launchdarkly/config.ts` and `scripts/ld-metrics.mjs` (a unit test keeps them in step) |
 | Client-side ID | `.env` (`VITE_LD_CLIENT_SIDE_ID`) |
 | QA tester key | `web/src/launchdarkly/contexts.ts` |
 | Personas and context attributes | `web/src/launchdarkly/contexts.ts` |
@@ -296,7 +314,7 @@ A manual trigger is the first step on a remediation ladder that enterprise teams
 
 1. **Flag trigger** (this part): a person, or a monitoring tool, calls a URL to turn the feature off.
 2. **Kill switch flag**: a permanent flag that guards a risky dependency long after launch.
-3. **Guarded rollout**: LaunchDarkly ramps the release gradually, watches error rate and business metrics, and **rolls back on its own** when a regression appears. No human in the loop. This repo stops at the trigger, but the flag is ready for a guarded rollout: it needs only a metric to watch, such as error rate from LaunchDarkly's observability SDK.
+3. **Guarded rollout**: LaunchDarkly ramps the release gradually, watches error rate and business metrics, and **rolls back on its own** when a regression appears. No human in the loop. This repo stops at the trigger, but the flag is ready for a guarded rollout: the checkout already reports conversion and order value. A production rollout would add an error-rate metric, for example from LaunchDarkly's observability SDK, so a regression rolls back on its own.
 
 ---
 
@@ -486,7 +504,7 @@ A few choices worth explaining:
 - **Same context on both sides.** The server builds the shopper's context with the browser's `toLDContext()`. A shopper therefore gets the same targeting and the same experiment bucket in the chat as on the rest of the site, and the email stays a private attribute.
 - **Config per request.** The server asks LaunchDarkly for the config on every request, with that shopper's context. LaunchDarkly evaluates it locally from memory, so this is fast. Reusing one config for everyone would ignore targeting.
 - **Mapping to Anthropic.** AgentControl stores a prompt as role-tagged messages. Anthropic takes the system prompt as a separate field and needs the conversation to start with a user turn, so `toAnthropicMessages()` converts one shape into the other. Only two model parameters are forwarded, each checked first: `max_tokens` and `effort`. Current Claude models reject sampling parameters such as `temperature`, so passing every dashboard parameter through could break the assistant.
-- **Tracking.** One tracker per answer records duration, token usage, and success or error with `trackMetricsOf`. Feedback arrives later, in a separate request. The tracker's resumption token rebuilds the same run, so a thumbs up lands on the variation that earned it. The token reaches the browser only inside an HMAC signature, so a forged one is rejected.
+- **Tracking.** One tracker per answer records duration, token usage, and success or error with `trackMetricsOf`. There is no LaunchDarkly provider package for Anthropic, so a small extractor reads Claude's token counts; it reports a safety decline as an error, because the shopper got no answer. Feedback arrives later, in a separate request. The tracker's resumption token rebuilds the same run, so a thumbs up lands on the variation that earned it. The token reaches the browser only inside an HMAC signature, so a forged one is rejected.
 - **Fallbacks.** If LaunchDarkly is unreachable, the code's fallback is "disabled", the same safe default every flag in this app uses. If the model call fails or declines, the shopper sees an apology instead of an error.
 - **Which SDK.** This uses LaunchDarkly's stable Node AI SDK, `@launchdarkly/server-sdk-ai` v2, with the official `@anthropic-ai/sdk`. LaunchDarkly's newer `@launchdarkly/ai-node` (open beta) adds a Claude handler, `@launchdarkly/ai-claude-messages`, that does the mapping and tracking automatically. For a customer going to production today, the stable SDK is the safer choice, and it shows exactly what the beta automates.
 
@@ -502,8 +520,8 @@ Two layers of automated tests run on every pull request.
 
 | Layer | Tool | What it proves |
 |---|---|---|
-| Unit and component (105 tests) | Vitest + React Testing Library | The assistant's server code (Anthropic message mapping, parameter filtering, fallbacks, product-link checks, the experiment event, signed feedback tokens), the AgentControl setup staying in step with the server, the chat panel, checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
-| End to end (66 test runs) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus both flags: **release and roll back mid-checkout with no page reload**; every Part 2 persona, rule, and attribute edit with the reason shown; a targeting change reaching the shopper live; contexts never in URLs and the private email never in events; fallbacks when LaunchDarkly is unreachable; and the trail guide's answers, product cards, fallback, and feedback (with the server stubbed) |
+| Unit and component (109 tests) | Vitest + React Testing Library | The assistant's server code (Anthropic message mapping, parameter filtering, fallbacks, product-link checks, the experiment event, declines reported as errors, signed feedback tokens), the AgentControl setup staying in step with the server, the chat panel, checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the `checkout-completed` event with the order total, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
+| End to end (67 test runs) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus both flags: **release and roll back mid-checkout with no page reload**; every Part 2 persona, rule, and attribute edit with the reason shown; a targeting change reaching the shopper live; contexts never in URLs and the private email never in events; the `checkout-completed` event carrying the order total; fallbacks when LaunchDarkly is unreachable; and the trail guide's answers, product cards, fallback, and feedback (with the server stubbed) |
 
 ### Phone layout
 
@@ -571,6 +589,7 @@ switchback-supply/
   scripts/ld-ai-config.mjs      The assistant's config, three variations, prompts, and metric as data
   scripts/assistant-traffic.mjs Labeled synthetic shoppers for the experiment (real Claude replies)
   scripts/ld-targeting.mjs      The Part 2 configuration as data (reviewed in pull requests)
+  scripts/ld-metrics.mjs        Part 1's checkout metrics as data
   scripts/catalog-source.py     Product copy, prices, and variants; generates data/catalog.json
   scripts/validate-catalog.mjs  Catalog checks run in CI
   vercel.json                   Build settings, function duration, and single-page app routing for Vercel
@@ -609,6 +628,7 @@ switchback-supply/
 - [Evaluation reasons](https://launchdarkly.com/docs/sdk/concepts/evaluation-reasons) and [Bootstrapping](https://launchdarkly.com/docs/sdk/features/bootstrapping)
 - [REST API: update feature flag with semantic patch](https://launchdarkly.com/docs/api/feature-flags/patch-feature-flag), [update segment](https://launchdarkly.com/docs/api/segments/patch-segment), and [API access tokens](https://launchdarkly.com/docs/home/account/api)
 - [Kill switch flags](https://launchdarkly.com/docs/home/flags/killswitch) and [Guarded rollouts](https://launchdarkly.com/docs/home/releases/guarded-rollouts)
+- [Metrics](https://launchdarkly.com/docs/home/metrics), [Custom numeric metrics](https://launchdarkly.com/docs/home/metrics/custom-numeric), and [REST API: create metric](https://launchdarkly.com/docs/api/metrics/create-metric)
 - [AgentControl (formerly AI Configs)](https://launchdarkly.com/docs/home/agentcontrol), [Creating configs](https://launchdarkly.com/docs/home/agentcontrol/create), [Variations](https://launchdarkly.com/docs/home/agentcontrol/create-variation), [Targeting](https://launchdarkly.com/docs/home/agentcontrol/target), and [Monitoring](https://launchdarkly.com/docs/home/agentcontrol/monitor)
 - [Node.js AI SDK (stable)](https://launchdarkly.com/docs/sdk/ai/node-js-legacy), the newer [Node.js AI SDK (beta)](https://launchdarkly.com/docs/sdk/ai/node-js), and [Tracking AI metrics](https://launchdarkly.com/docs/sdk/features/ai-metrics)
 - [Experiments with AgentControl](https://launchdarkly.com/docs/home/agentcontrol/experimentation), [Online evaluations](https://launchdarkly.com/docs/home/agentcontrol/online-evaluations), and [Sending custom events](https://launchdarkly.com/docs/sdk/features/events)

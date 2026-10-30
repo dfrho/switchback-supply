@@ -82,4 +82,22 @@ test.describe('Express checkout (flag on)', () => {
     await expect(drawer(page).getByRole('heading', { name: 'See you on the trail.' })).toBeVisible();
     await expect(cartCount(page)).toHaveText('0');
   });
+
+  test('sends a checkout-completed event with the order total, for metrics', async ({ page, ld }) => {
+    await ld.reset({ [FLAG]: true });
+    const bottle = product('canyon-bottle');
+    await page.goto('/');
+    await waitForStreaming(page);
+    await addToPack(page, bottle);
+    await drawer(page).getByRole('button', { name: /^Place order/ }).click();
+    // The SDK batches analytics events and sends them a few seconds later.
+    const completed = async () =>
+      (await ld.eventPayloads())
+        .flatMap((payload) => JSON.parse(payload) as { kind: string; key?: string; data?: unknown; metricValue?: number }[])
+        .find((event) => event.kind === 'custom' && event.key === 'checkout-completed');
+    await expect.poll(completed, { timeout: 20_000 }).toMatchObject({
+      data: { checkout: 'express', items: 1 },
+      metricValue: bottle.price + 8,
+    });
+  });
 });

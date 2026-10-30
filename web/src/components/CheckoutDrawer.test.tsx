@@ -1,4 +1,5 @@
 import { act, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -27,6 +28,7 @@ const ld = vi.hoisted(() => {
     off: vi.fn((event: string, fn: () => void) => listeners.get(event)?.delete(fn)),
     boolVariation: vi.fn((key: string, fallback: boolean) => flags[key] ?? fallback),
     getInitializationState: vi.fn(() => 'complete'),
+    track: vi.fn(),
     // identify() resolves after LaunchDarkly evaluates the new context. Tests set
     // nextIdentifyFlags to simulate the values LaunchDarkly returns for that shopper.
     identify: vi.fn(async () => {
@@ -128,6 +130,7 @@ describe('CheckoutDrawer feature flag', () => {
     ld.listeners.clear();
     ld.client.on.mockClear();
     ld.client.off.mockClear();
+    ld.client.track.mockClear();
     ld.state.nextIdentifyFlags = undefined;
   });
 
@@ -208,6 +211,15 @@ describe('CheckoutDrawer feature flag', () => {
     renderDrawer();
     act(() => ld.setFlag(FLAG, true));
     expect(within(drawer()).getByText(bottle.name)).toBeInTheDocument();
+  });
+
+  it('sends checkout-completed with the order total and the checkout served, for metrics', async () => {
+    ld.flags[FLAG] = true;
+    renderDrawer();
+    expect(ld.client.track).not.toHaveBeenCalled();
+    await userEvent.click(within(drawer()).getByRole('button', { name: /^Place order/ }));
+    // One canyon bottle plus flat shipping (under the free-shipping minimum).
+    expect(ld.client.track).toHaveBeenCalledExactlyOnceWith('checkout-completed', { checkout: 'express', items: 1 }, bottle.price + 8);
   });
 
   it('removes its listener with the same function when unmounted', () => {

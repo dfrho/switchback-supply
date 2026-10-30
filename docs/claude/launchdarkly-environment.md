@@ -24,6 +24,8 @@ Production also holds a copy of the Part 2 targeting from an early `ld:setup` ru
 
 As of October 29, 2026: flag **Off** at rest (serving `false`), default rule serves `true`, no individual targets. Turning the flag On therefore releases Express checkout to everyone, which is the Part 1 demo. README Step 5's optional `qa-tester-001` target is not currently set. The live site (Vercel) uses this environment, and the dashboard showed its evaluations arriving. A **Generic flag trigger** with action "turn the flag off" exists for this environment; its URL is in `.env` as `LD_TRIGGER_URL_CHECKOUT_OFF`, and `npm run remediate` calls it. Resetting the trigger issues a new URL.
 
+Part 1 metrics (added October 30, 2026, branch `feat/checkout-metric`): the drawer sends `checkout-completed` with the order total as its value; `ld:setup` defines `checkout-completed` (conversion) and `checkout-order-value` (value, dollars, averaged per shopper, shoppers without an order count as $0). Created in Test's project by `ld:setup` on October 30, 2026; not yet attached to an experiment or rollout.
+
 ### `release-landing-hero` targeting (Test), applied by `npm run ld:setup`
 
 | Order | Section | Condition | Serves |
