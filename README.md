@@ -71,7 +71,7 @@ Any project works. These instructions use the **Test** environment. Whatever you
 
 ### Step 2: Copy your client-side ID
 
-In LaunchDarkly, click the **gear icon** (bottom left) > **Settings** > **All environments**, with your project selected at the top, then open your environment (**Test**) and its **SDK keys** tab. Under **Client-side IDs**, copy the ID.
+In LaunchDarkly, click the **gear icon** (lower left) > **All environments** (left navigation) > **Test** (your environment) > **SDK keys** tab. Under **Client-side IDs**, copy the ID.
 
 The client-side ID is **not a secret**. It is designed to ship in browser code. Do not use the **SDK key** here: that one is secret and belongs only on servers.
 
@@ -418,7 +418,7 @@ These steps add to the Part 1 and Part 2 setup above. They use the same LaunchDa
 **Step A1: Add the two server keys to `.env`.** The assistant runs on the server, because the model key must never reach a browser:
 
 ```bash
-LD_SDK_KEY=sdk-...          # LaunchDarkly > gear icon > Settings > All environments > Test > SDK keys tab > SDK key
+LD_SDK_KEY=sdk-...          # LaunchDarkly > gear icon (lower left) > All environments > Test > SDK keys tab > SDK key
 ANTHROPIC_API_KEY=sk-ant-... # console.anthropic.com > API keys
 ```
 
