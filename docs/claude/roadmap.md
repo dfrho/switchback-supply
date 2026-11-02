@@ -1,6 +1,6 @@
 # Roadmap
 
-Status as of October 30, 2026. Work in this order. Each item is its own branch and PR.
+Status as of November 2, 2026. Work in this order. Each item is its own branch and PR.
 
 ## Done
 
@@ -16,6 +16,9 @@ Status as of October 30, 2026. Work in this order. Each item is its own branch a
 | #8 | Vercel deploy: live at https://web-puce-kappa-92.vercel.app (Test client-side ID) |
 | #9 | Extra credit: AgentControl shopping assistant on Claude, experiment iteration 1 |
 | #10 | Checkout metrics for `release-new-checkout`; model refusals tracked as errors |
+| #11 | Experiment iteration 2 design: kit prompt variation, free-shipping kit, kit value, and response-time metrics |
+| #12 | Demo runbook |
+| next | Experiment results in the README |
 
 Dropped by decision on October 29: the observability plus guarded rollout extra credit (not in the brief). The README mentions guarded rollouts only as the next rung of the remediation ladder.
 
@@ -43,7 +46,7 @@ Done when: chat panel on every page, a prompt or model change in LaunchDarkly ch
 
 Iteration 1 (recommended-a-product metric) saturated near 99%; LaunchDarkly picked Sonnet by 1.5 points, which does not justify its cost. Not reported in the README (David's decision); the story is in his private interview notes.
 
-Iteration 2, branch `feat/bundle-experiment`: Control vs Sonnet vs the `bundle` kit prompt; primary `assistant-free-shipping-basket`, plus `assistant-basket-value`, guardrail `assistant-response-time`. Order: merge, `ld:setup`, stop iteration 1 (declare Control), Edit design for iteration 2, smoke test, then 900 shoppers from 941. Then a results PR on Sunday November 1: README results with a screenshot, the decision, and a "synthetic traffic, real replies" label.
+Kit experiment (PR #11): ran as iteration 3, shoppers 1100 to 1999, October 30, 2026. LaunchDarkly names Sonnet the winner on free-shipping kits; Scorecard (November 2, from LaunchDarkly): Sonnet wins the primary metric but fails the response-time guardrail (+48%, 95% interval +41% to +56%); the kit prompt fails both (+21% slower). Decision: keep Control as default; release Sonnet to gold-tier shoppers behind a guarded rollout watching add-to-cart and response time, widen only if purchases rise.
 
 ## 3. Demo runbook and rehearsal
 
