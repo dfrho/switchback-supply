@@ -50,6 +50,8 @@ npm install
 npm run dev                 # open http://localhost:5173
 ```
 
+Parts 1 and 2 need only those two values. The Trail Guide chat also needs `LD_SDK_KEY` and `ANTHROPIC_API_KEY` ([Extra credit setup](#extra-credit-ai-configs)); without them the store still runs, and the chat answers with its fallback message ("The trail guide is off the clock right now...") instead of calling a model.
+
 ---
 
 ## Prerequisites and assumptions
@@ -60,6 +62,13 @@ npm run dev                 # open http://localhost:5173
 - **A modern browser** (Chrome, Edge, Firefox, or Safari). Some ad or privacy blockers block requests to LaunchDarkly; if the console says "Timed out," allow `launchdarkly.com` for `localhost`.
 - **A LaunchDarkly account.** A free trial works: [launchdarkly.com/start-trial](https://launchdarkly.com/start-trial/). Flag triggers are an Enterprise feature, which the trial includes.
 - Port **5173** is free on your machine.
+
+Only for the optional parts:
+
+- **A LaunchDarkly API access token with the Writer role**, for `npm run ld:setup` ([Steps 6 to 8, the fast way](#steps-6-to-8-the-fast-way-npm-run-ldsetup)). Without it, follow the dashboard steps instead.
+- **An Anthropic account with an API key and billing set up**, for the Trail Guide ([Extra credit](#extra-credit-ai-configs)). Every answer is a paid model call; set a monthly spend limit in the Anthropic Console.
+- **A Vercel account**, only to [deploy your own copy](#deploy-to-vercel-optional).
+- **Python 3**, only to regenerate the catalog with `npm run catalog`.
 
 ---
 
@@ -324,6 +333,10 @@ LaunchDarkly credits each event to the checkout that shopper was served, so thes
 | Products, prices, colors, sizes | `scripts/catalog-source.py`, then run `npm run catalog` |
 | Product photos | Add `web/public/products/<product-id>.webp`, then run `npm run catalog` |
 | Trigger URL | `.env` (`LD_TRIGGER_URL_CHECKOUT_OFF`) |
+| API access token for `npm run ld:setup` | `.env` (`LD_API_TOKEN`) |
+| Server-side SDK key and Anthropic key (Trail Guide) | `.env` (`LD_SDK_KEY`, `ANTHROPIC_API_KEY`); on Vercel, the project's environment variables |
+| AgentControl config key and server metric events | `server/config.ts` (`AI_CONFIGS`, `METRIC_EVENTS`) |
+| Assistant prompts, models, and variations | `scripts/ld-ai-config.mjs` (a unit test keeps its keys in step with `server/config.ts`) |
 
 ---
 
@@ -670,12 +683,14 @@ Also confirmed: no secrets in the repository or its history, only the public cli
 
 | Symptom | Likely cause and fix |
 |---|---|
+| The [live demo](https://web-puce-kappa-92.vercel.app/) shows only the fallback experience (Classic checkout, the current hero, the Trail Guide "off the clock") | The LaunchDarkly trial behind the live site has ended or its flags were changed. Follow [Setup, step by step](#setup-step-by-step) to run your own copy against your own account. |
 | Page shows "Almost at the trailhead" | `VITE_LD_CLIENT_SIDE_ID` is empty. Fill in `.env` and restart `npm run dev`. |
 | Console shows "Timed out" or "Failed" | Wrong client-side ID, no network, or a browser extension blocking LaunchDarkly. The app keeps working on fallback values. |
-| Flag changes do nothing | The flag is not available to client-side SDKs (fix it in the flag's right-hand panel > **Advanced controls** > **Available on client-side SDKs**), or the flag lives in a different environment than your client-side ID. |
+| Flag changes do nothing | The flag is not available to client-side SDKs (fix it in the flag's right-hand panel > **Advanced controls** > **Available on client-side SDKs**), or the flag lives in a different environment than your client-side ID. If the Release Console does not say **Streaming**, reload the page once. |
 | QA tester does not get Express checkout | The flag must be **On** for individual targets to apply, and the key must be exactly `qa-tester-001`. |
 | The hero never changes for any persona | Check that `release-landing-hero` exists, is **On**, is available to client-side SDKs, and has the targeting from Step 8. |
 | The console names the wrong rule | The rule order in LaunchDarkly differs from `HERO_TARGETING` in `web/src/launchdarkly/config.ts`; make them match. |
+| A persona gets a different hero than the [Part 2 table](#what-you-will-see-1) says | The hero's targeting was edited by hand in the dashboard. Run `npm run ld:setup` to put back the targeting from Step 8; it is safe to run again. |
 | An attribute is missing from a dashboard dropdown | LaunchDarkly lists only attributes it has received. Switch personas in the Release Console and wait for **Audiences > Contexts** to update, or use `npm run ld:setup`. |
 | Contexts and the Event debugger stay empty, but flags work | Analytics events are being blocked. Ad blockers that use the EasyPrivacy filter list block `events.launchdarkly.com` (rule `\|\|events.launchdarkly.com^$third-party`), for example Brave Shields, and uBlock Origin, which enables that list by default. In DevTools > Network, those requests show `(blocked:other)`. Allow the domain or use a clean browser profile. Flags keep working, because the flag hosts (`clientsdk` and `clientstream.launchdarkly.com`) are not on the list and evaluation does not depend on events. |
 | `npm run ld:setup` says the client-side ID belongs to another environment | `VITE_LD_CLIENT_SIDE_ID` came from a different environment than Test (environments created together share their first characters, so compare the whole ID). Copy **Test**'s client-side ID into `.env` and restart `npm run dev`. |
