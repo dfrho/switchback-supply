@@ -62,7 +62,7 @@ Stack: React 19, Vite, TypeScript, React Router, `@launchdarkly/react-sdk` v4 (t
 ## Gotchas learned the hard way
 
 - **Environment mismatch**: LaunchDarkly client-side IDs start with a creation timestamp, so environments created together (Production and Test) share their first characters. Compare whole IDs. `ld:setup` checks which environment owns `VITE_LD_CLIENT_SIDE_ID` and stops on a mismatch. The app currently uses **Test**; see `docs/claude/launchdarkly-environment.md`.
-- **Ad blockers** (Brave Shields, uBlock, NordVPN Threat Protection) block `events.launchdarkly.com` (DevTools shows `(blocked:other)`). Flags still evaluate; Contexts, Live events, and metrics stay empty. Test in a clean Chrome profile.
+- **Ad blockers that use the EasyPrivacy list** block `events.launchdarkly.com` (rule `||events.launchdarkly.com^$third-party`; DevTools shows `(blocked:other)`). Verified November 2, 2026: Brave Shields blocked it and a Chrome Incognito control delivered it; uBlock Origin enables EasyPrivacy by default but was not tested. Flags still evaluate (the flag hosts are not on the list); Live events, metrics, and experiment data stay empty. Test in a clean Chrome profile.
 - **The dashboard's attribute dropdowns list only attributes LaunchDarkly has received.** Use `ld:setup` (REST API, semantic patch) instead of waiting.
 - **Debug targeting from the evaluation response**, not the dashboard: DevTools > Network > filter `withReasons` > `context?withReasons=true` (REPORT) shows `value`, `variation`, `flagVersion`, and `reason` per flag.
 - `useReport: true` keeps contexts (including the private email) out of URLs; in browsers the SDK then uses a context-free `/ping` stream and REPORT polls. The mock server supports both modes.

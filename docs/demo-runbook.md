@@ -7,7 +7,7 @@ Live site: https://web-puce-kappa-92.vercel.app (LaunchDarkly **Test** environme
 ## 30 minutes before
 
 **Browser**
-- [ ] Use a **clean Chrome profile** with no extensions. Ad blockers (Brave Shields, uBlock, NordVPN Threat Protection) block `events.launchdarkly.com`: flags still work, but Live events, Contexts, metrics, and experiment results stay empty.
+- [ ] Use a **clean Chrome profile** with no extensions. Ad blockers that use the EasyPrivacy filter list, such as Brave Shields and uBlock Origin, block `events.launchdarkly.com`: flags still work, but Live events, Contexts, metrics, and experiment results stay empty.
 - [ ] Open the live site. The Release Console (bottom left) shows **Connected** and **Streaming**. Leave it collapsed.
 - [ ] Shopping as **Guest shopper**, cart empty.
 
