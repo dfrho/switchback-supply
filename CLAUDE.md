@@ -1,11 +1,11 @@
 # Switchback Supply
 
-A LaunchDarkly sample app: a fictional outdoor gear store that answers LaunchDarkly's Senior Solutions Engineer take-home exercise. The audience is LaunchDarkly SEs reviewing it as if it were delivered to a prospective customer, so **code comments, the README, and PR descriptions are part of the product**. Write them for that reader.
+A LaunchDarkly sample app: a mock eCommerce store (an outdoor gear retailer) that answers LaunchDarkly's Senior Solutions Engineer take-home exercise. The audience is LaunchDarkly SEs reviewing it as if it were delivered to a prospective customer, so **code comments, the README, and PR descriptions are part of the product**. Write them for that reader.
 
 - Part 1, Release and Remediate: `release-new-checkout` wraps the checkout drawer (Classic vs Express), a change listener swaps it live, and a flag trigger turns it off (`npm run remediate`).
 - Part 2, Target: `release-landing-hero` wraps the home page hero (current vs Winter-Ready), with shopper contexts, individual targeting, three ordered rules, and a segment.
 - Live at https://web-puce-kappa-92.vercel.app (Vercel, Test environment).
-- Extra credit, AI Configs: the Trail guide chat (`web/src/components/ShoppingAssistant.tsx`) posts to `/api/assistant`, where `server/assistant.ts` evaluates the AgentControl config `shopping-assistant` (stable `@launchdarkly/server-sdk-ai` v2), calls Claude with `@anthropic-ai/sdk`, tracks the run, and sends the `assistant-recommended-product` experiment event.
+- Extra credit, AI Configs: the Trail Guide chat (`web/src/components/ShoppingAssistant.tsx`) posts to `/api/assistant`, where `server/assistant.ts` evaluates the AgentControl config `shopping-assistant` (stable `@launchdarkly/server-sdk-ai` v2), calls Claude with `@anthropic-ai/sdk`, tracks the run, and sends the `assistant-recommended-product` experiment event.
 - Next: see `docs/claude/roadmap.md` (run the experiment, then the demo runbook).
 
 ## Commands
@@ -48,7 +48,7 @@ Stack: React 19, Vite, TypeScript, React Router, `@launchdarkly/react-sdk` v4 (t
 - **Secrets never enter the repo, the browser bundle, or chat.** Only the client-side ID may be a `VITE_` variable. The SDK key, API token (`LD_API_TOKEN`), trigger URL, and Anthropic key are server-side or `.env` only. Do not read or print `.env`; ask the user for any value you need to confirm. CI fails on anything shaped like an SDK key, API token, or trigger URL.
 - **Every flag key lives in `web/src/launchdarkly/config.ts`** with a safe fallback in `FALLBACKS`. Browser `track()` event keys live there too, in `METRIC_EVENTS`, with their metric definitions in `scripts/ld-metrics.mjs`. The fallback is always the known-good experience. AgentControl config keys and server-side metric event keys live in `server/config.ts`; the assistant's fallback is disabled (no model call).
 - **The assistant's prompts and variations live in `scripts/ld-ai-config.mjs`**; a unit test keeps its keys in step with `server/config.ts`. Prompt facts (like free shipping at $150) must match the store.
-- **Changing targeting means changing three places together**: `scripts/ld-targeting.mjs` (what `ld:setup` writes), `HERO_TARGETING` in `config.ts` (Release Console labels), and `tests/e2e/fixtures.ts` (mock). A unit test checks the first two stay in step.
+- **Changing targeting or personas means changing these places together**: `scripts/ld-targeting.mjs` (what `ld:setup` writes), `HERO_TARGETING` in `config.ts` (Release Console labels), `tests/e2e/fixtures.ts` (mock), and the README's Step 8 targeting table and Part 2 persona table (personas live in `contexts.ts`). A unit test checks the first two stay in step.
 - **Commands that change the real LaunchDarkly environment or spend money** (`npm run ld:setup`, `npm run remediate`, `npm run assistant:traffic` without `--dry-run`) run only when the user asks.
 - **No emojis and no em dashes** anywhere: code, comments, docs, commit messages, PR text. Use commas, colons, parentheses, or two sentences.
 - Prefer plain words in user-facing text. Every LaunchDarkly feature mentioned in the README links to the LaunchDarkly doc page it relies on.

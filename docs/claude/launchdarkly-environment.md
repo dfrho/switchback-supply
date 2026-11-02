@@ -76,4 +76,4 @@ Every context also carries `country: US` and a detected `deviceType`. The consol
 | `LD_TRIGGER_URL_CHECKOUT_OFF` | `.env` | `npm run remediate` |
 | `LD_API_TOKEN` | `.env` | `npm run ld:setup` (personal token, Writer role, expires January 2027) |
 | `LD_PROJECT_KEY`, `LD_ENVIRONMENT_KEY` | `.env` | `default`, `test` |
-| `LD_SDK_KEY`, `ANTHROPIC_API_KEY` | `.env`, Vercel (Sensitive) | `/api/assistant` (server only) |
+| `LD_SDK_KEY`, `ANTHROPIC_API_KEY` | `.env`, Vercel (Secret) | `/api/assistant` (server only) |
