@@ -365,7 +365,7 @@ Every visitor is a LaunchDarkly `user` context built from their shopper profile:
 | `deviceType` | `desktop` or `mobile` | Detected in the browser, so it works for guests too |
 | `betaTester` | `true` | Drives the `beta-shoppers` segment |
 
-In a real store these values come from the signed-in shopper's account. This demo has no login, so the Release Console offers five **personas** as stand-ins, and lets you edit any shopper's attributes:
+In a real store these values come from the signed-in shopper's account. This demo has no login, so the Release Console offers five **personas** as stand-ins, and lets you edit any shopper's attributes (an edited shopper is marked **· edited**, with a **Reset** link that restores the persona):
 
 | Persona | What it demonstrates | Hero |
 |---|---|---|
@@ -379,7 +379,7 @@ The console's **How LaunchDarkly chose the hero** panel shows LaunchDarkly's own
 
 ### Demo walkthrough (about 3 minutes)
 
-Open the home page and expand the **Release Console**.
+Open the home page and expand the **Release Console**. Choosing a persona loads its original attributes. Edits made with the switches show as **· edited** next to the key; click **Reset** there to undo them (choosing the persona that is already selected does nothing, because the dropdown only reacts to a change).
 
 1. **Default rule.** As **Guest shopper**, you see the current hero. The panel reads "No targeting matched; default rule served".
 2. **Individual targeting.** Choose **Internal QA tester**. The hero swaps to Winter-Ready with no reload, and the panel reads "Individually targeted".
@@ -603,8 +603,8 @@ Two layers of automated tests run on every pull request.
 
 | Layer | Tool | What it proves |
 |---|---|---|
-| Unit and component (127 tests) | Vitest + React Testing Library | The assistant's server code (Anthropic message mapping, parameter filtering, fallbacks, product-link checks, the experiment events (kit value, free-shipping kits, response time), declines reported as errors, signed feedback tokens, history trimming), the API's request checks (POST only, JSON only, body size cap, and status codes that never leak internals), the AgentControl setup staying in step with the server, the chat panel, checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the `checkout-completed` event with the order total, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
-| End to end (67 test runs) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus both flags: **release and roll back mid-checkout with no page reload**; every Part 2 persona, rule, and attribute edit with the reason shown; a targeting change reaching the shopper live; contexts never in URLs and the private email never in events; the `checkout-completed` event carrying the order total; fallbacks when LaunchDarkly is unreachable; and the trail guide's answers, product cards, fallback, and feedback (with the server stubbed) |
+| Unit and component (131 tests) | Vitest + React Testing Library | The assistant's server code (Anthropic message mapping, parameter filtering, fallbacks, product-link checks, the experiment events (kit value, free-shipping kits, response time), declines reported as errors, signed feedback tokens, history trimming), the API's request checks (POST only, JSON only, body size cap, and status codes that never leak internals), the AgentControl setup staying in step with the server, the chat panel, the Release Console's Reset for edited shoppers, checkout validation, catalog lookups, the shipping rule, cart stock limits and persistence, contexts and private attributes, the evaluation-reason explainer, the hero's placeholder and fallback, and the flagged checkout drawer: Classic for `false`, Express for `true`, the `checkout-completed` event with the order total, the fallback when LaunchDarkly has no value, a live swap with toast and log, shopper switches labeled as switches, and listener cleanup |
+| End to end (68 test runs) | Playwright in Chromium | The whole store in a real browser: every header, tile, chip, card, breadcrumb, and related-product link; all 25 product pages; size, color, and stock rules; the cart and drawer; both checkouts; the 404 page; phone layout. Plus both flags: **release and roll back mid-checkout with no page reload**; every Part 2 persona, rule, and attribute edit with the reason shown, and Reset restoring the original shopper; a targeting change reaching the shopper live; contexts never in URLs and the private email never in events; the `checkout-completed` event carrying the order total; fallbacks when LaunchDarkly is unreachable; and the trail guide's answers, product cards, fallback, and feedback (with the server stubbed) |
 
 ### Phone layout
 

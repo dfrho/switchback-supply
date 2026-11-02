@@ -50,7 +50,7 @@ The checkout flag has no targeting, so it serves every shopper the same value: s
 
 ### Part 2: Target (3 minutes)
 
-Go to the home page and expand the Release Console. Choose each shopper in the **SHOPPING AS** dropdown (not the switches below it: the **Beta tester** switch under SHOPPER ATTRIBUTES edits the current shopper instead). Then read **HOW LAUNCHDARKLY CHOSE THE HERO**: that line is LaunchDarkly's own evaluation reason, sent with the flag value, not logic rebuilt in the app. The rows under it show which targeting was checked, top to bottom.
+Go to the home page and expand the Release Console. Choose each shopper in the **SHOPPING AS** dropdown (not the switches below it: the **Beta tester** switch under SHOPPER ATTRIBUTES edits the current shopper instead). Then read **HOW LAUNCHDARKLY CHOSE THE HERO**: that line is LaunchDarkly's own evaluation reason, sent with the flag value, not logic rebuilt in the app. The rows under it show which targeting was checked, top to bottom. Choosing a persona loads its original attributes. Edits made with the switches show as **· edited** next to the key; click **Reset** there to undo them (choosing the persona that is already selected does nothing, because the dropdown only reacts to a change).
 
 | Shopping as | What is different about this shopper | What matches | The panel says | Hero |
 |---|---|---|---|---|
