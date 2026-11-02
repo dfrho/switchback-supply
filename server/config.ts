@@ -5,8 +5,8 @@
  * not the browser's client-side ID. Put both secrets in the repo-root .env
  * (local) and in Vercel > Settings > Environment Variables (live), never with
  * a VITE_ prefix:
- *   LD_SDK_KEY=          LaunchDarkly > gear icon > Projects > your project >
- *                        Environments > Test (or yours) > SDK key
+ *   LD_SDK_KEY=          LaunchDarkly > gear icon (lower left) > All environments >
+ *                        Test (or yours) > SDK keys tab > SDK key
  *   ANTHROPIC_API_KEY=   Anthropic Console > API keys
  */
 
@@ -14,7 +14,7 @@ import type { LDAICompletionConfigDefault } from '@launchdarkly/server-sdk-ai';
 
 /**
  * AgentControl (formerly AI Configs) keys used by the app.
- * RECREATE THIS CONFIG: Agents > Configs > Create > Completion, key "shopping-assistant",
+ * RECREATE THIS CONFIG: Agent management > Configs > Create > Completion, key "shopping-assistant",
  * with the three variations in scripts/ld-ai-config.mjs, default rule serving "Control".
  * `npm run ld:setup` creates all of it for you.
  */

@@ -14,8 +14,8 @@ export default function SetupNotice() {
           Copy <code>.env.example</code> to <code>.env</code> in the repository root.
         </li>
         <li>
-          Paste your client-side ID into <code>VITE_LD_CLIENT_SIDE_ID</code>. Find it in LaunchDarkly under
-          Settings, your project, your environment, SDK keys.
+          Paste your client-side ID into <code>VITE_LD_CLIENT_SIDE_ID</code>. Find it in LaunchDarkly: gear icon (lower left),
+          All environments, your environment, SDK keys tab.
         </li>
         <li>
           Restart <code>npm run dev</code>.

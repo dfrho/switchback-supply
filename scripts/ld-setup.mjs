@@ -24,7 +24,7 @@
  * LaunchDarkly (often with the Terraform provider, which uses this same API).
  *
  * SETUP (repo-root .env, never committed):
- *   LD_API_TOKEN=        Organization settings > Authorization > Create token (role: Writer)
+ *   LD_API_TOKEN=        Gear icon (lower left) > Authorization (under Security) > Tokens > Create token (role: Writer)
  *   LD_PROJECT_KEY=      optional, default "default"
  *   LD_ENVIRONMENT_KEY=  optional, default "production"
  *   LD_API_URL=          optional, for LaunchDarkly's EU or federal instances
@@ -226,7 +226,7 @@ async function setupAssistant() {
 
   if (targeting.environments?.[ENVIRONMENT]?.enabled === false) {
     // The REST API has no "turn on" instruction for AgentControl targeting.
-    console.log(`  NOTE: targeting is Off in ${ENVIRONMENT}, so everyone gets the fallback. Turn it On in Agents > Configs > ${AI_CONFIG.key} > Targeting.`);
+    console.log(`  NOTE: targeting is Off in ${ENVIRONMENT}, so everyone gets the fallback. Turn it On in Agent management > Configs > ${AI_CONFIG.name} > Targeting.`);
   }
 
   await ensureMetric(RECOMMENDED_PRODUCT_METRIC);
@@ -238,7 +238,7 @@ async function main() {
 
   if (!TOKEN) {
     console.error('LD_API_TOKEN is not set.');
-    console.error('Create one in LaunchDarkly > Organization settings > Authorization (role: Writer),');
+    console.error('Create one in LaunchDarkly: gear icon (lower left) > Authorization (under Security) > Tokens > Create token (role: Writer),');
     console.error('then add it to the repo-root .env file as LD_API_TOKEN=... (never commit it).');
     process.exit(1);
   }

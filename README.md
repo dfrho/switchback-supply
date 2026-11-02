@@ -71,7 +71,7 @@ Any project works. These instructions use the **Test** environment. Whatever you
 
 ### Step 2: Copy your client-side ID
 
-In LaunchDarkly, open **Settings > (your project) > (your environment) > SDK keys**. Under **Client-side IDs**, copy the ID.
+In LaunchDarkly, click the **gear icon** (lower left) > **All environments** (left navigation) > **Test** (your environment) > **SDK keys** tab. Under **Client-side IDs**, copy the ID.
 
 The client-side ID is **not a secret**. It is designed to ship in browser code. Do not use the **SDK key** here: that one is secret and belongs only on servers.
 
@@ -115,7 +115,7 @@ Now only `qa-tester-001` sees Express checkout. Everyone else still gets Classic
 
 Steps 6 to 8 can be done by hand (below) or with one command. The script creates the hero flag and the `beta-shoppers` segment if they are missing, then sets the targeting exactly as in Step 8 and turns the flag On. It also creates Part 1's two checkout metrics (see [Measuring the release](#3-measuring-the-release-the-checkout-completed-event)). It is safe to run again.
 
-1. Create an API access token: LaunchDarkly > **Organization settings** > **Authorization** > **Create token**, role **Writer**. It is shown once.
+1. Create an API access token: in LaunchDarkly, click the **gear icon** (lower left) > **Authorization** (under **Security** in the left navigation) > **Tokens** tab > **Create token** (top right). Choose the role **Writer**. The token is shown once.
 2. Add it to `.env` (see Step 9) as `LD_API_TOKEN=...`. Like the trigger URL, it is never prefixed with `VITE_` and never committed.
 3. If your project or environment keys are not `default` and `production`, set `LD_PROJECT_KEY` and `LD_ENVIRONMENT_KEY` too.
 4. Run `npm run ld:setup` (or `npm run ld:setup -- --dry-run` to see the changes first).
@@ -364,10 +364,10 @@ Open the home page and expand the **Release Console**.
 
 1. **Default rule.** As **Guest shopper**, you see the current hero. The panel reads "No targeting matched; default rule served".
 2. **Individual targeting.** Choose **Internal QA tester**. The hero swaps to Winter-Ready with no reload, and the panel reads "Individually targeted".
-3. **Rule-based targeting.** Choose **Employee**, then **Beta tester**, then **Gold member**. Each gets the Winter-Ready hero through a different rule: a private attribute, a segment, and a two-clause rule.
-4. **Attributes drive the result.** As the Gold member, change **State** from TN to CA. They leave the Central region, fall through to the default rule, and get the current hero. Switch **Beta tester** on and they match rule 2 instead.
+3. **Rule-based targeting.** In the **SHOPPING AS** dropdown (not the switches below it), choose **Employee**, then **Beta tester, Seattle**, then **Gold member, Nashville**. Each gets the Winter-Ready hero through a different rule: a private attribute, a segment, and a two-clause rule.
+4. **Attributes drive the result.** As **Gold member, Nashville**, with the **Employee email** and **Beta tester** switches both off, change only **State** from TN to CA. Rule 3 needs gold **and** a Central state, so it no longer matches, and nothing else does either: LaunchDarkly serves the flag's **default rule** (the value for everyone no rule catches), the current hero. Turn the **Beta tester** switch on and they match rule 2 instead.
 5. **First match wins.** Turn on **Employee email** as well. Rule 1 now matches, and rule 2 shows "Not evaluated", which is LaunchDarkly's top-to-bottom evaluation made visible.
-6. **Change targeting in LaunchDarkly.** With the Beta tester selected, remove or reorder the Beta shoppers rule in the dashboard and save. The store follows within moments, with no deploy.
+6. **Change targeting in LaunchDarkly.** With **Beta tester, Seattle** chosen under **SHOPPING AS**, remove or reorder the Beta shoppers rule in the dashboard and save. The store follows within moments, with no deploy.
 
 The console changes **who the shopper is**; it never changes the rules. Rules live only in LaunchDarkly, because editing them from the browser would require putting a LaunchDarkly write token in public code.
 
@@ -386,7 +386,7 @@ The console changes **who the shopper is**; it never changes the rules. Rules li
 
 ## Extra credit: AI Configs
 
-LaunchDarkly now calls this product **AgentControl** (formerly AI Configs). The dashboard shows it under **Agents > Configs**. The REST API, the SDK package, and this repo's code still use the older `ai-config` names.
+LaunchDarkly now calls this product **AgentControl** (formerly AI Configs). The dashboard shows it under **Agent management > Configs**. The REST API, the SDK package, and this repo's code still use the older `ai-config` names.
 
 ### The business problem
 
@@ -418,7 +418,7 @@ These steps add to the Part 1 and Part 2 setup above. They use the same LaunchDa
 **Step A1: Add the two server keys to `.env`.** The assistant runs on the server, because the model key must never reach a browser:
 
 ```bash
-LD_SDK_KEY=sdk-...          # LaunchDarkly > gear icon > Projects > your project > Environments > Test > SDK key
+LD_SDK_KEY=sdk-...          # LaunchDarkly > gear icon (lower left) > All environments > Test > SDK keys tab > SDK key
 ANTHROPIC_API_KEY=sk-ant-... # console.anthropic.com > API keys
 ```
 
@@ -440,7 +440,7 @@ It adds four things:
 
 To do the same by hand:
 
-1. Go to **Agents > Configs > Create > Completion**. Use the key `shopping-assistant`.
+1. Go to **Agent management > Configs > Create > Completion**. Use the key `shopping-assistant`.
 2. For each variation, choose the model, set `max_tokens` to `1024` and `effort` to `low`, and paste the system prompt from `scripts/ld-ai-config.mjs`.
 3. On the **Targeting** tab, set the default rule to Control, turn targeting **On**, and save.
 4. Go to **Metrics > Create metric**. Choose **Custom**, then **Conversion (binary)**, with the event key `assistant-recommended-product`.
@@ -452,7 +452,7 @@ To do the same by hand:
 ### Demo walkthrough (about 3 minutes)
 
 1. **Ask a question.** Open the Trail guide and ask "Which headlamp is best for under $60?". The label shows Control on Claude Haiku 5.5.
-2. **Change the model with no deploy.** In LaunchDarkly, open `shopping-assistant` > **Targeting**, set the default rule to **Treatment B**, and save. Ask again. The label now reads Claude Sonnet 5.5. No code changed, nothing was redeployed, and the page was not reloaded.
+2. **Change the model with no deploy.** In LaunchDarkly, open `shopping-assistant` > **Targeting**, set the default rule to **Treatment B**, and save (only when no experiment is running on the config; during an experiment, the experiment controls the default rule, so show its Results tab instead). Ask again. The label now reads Claude Sonnet 5.5. No code changed, nothing was redeployed, and the page was not reloaded.
 3. **Change the prompt live.** Open the **Variations** tab, edit Control's prompt (for example, "Answer in exactly two sentences"), and save. The next answer follows the new prompt.
 4. **Turn the AI off.** Turn the config's targeting **Off**. The next question gets a polite fallback and a link to the shop, and no model is called. Turn it back on and the guide returns. This is Part 1's kill switch, applied to AI.
 5. **Show the data.** Open the **Monitoring** tab. It shows tokens, time to generate, generations, errors, cost, and satisfaction from the thumbs buttons, each broken out by variation. Data updates about once a minute.
@@ -476,7 +476,7 @@ Monitoring adds tokens and cost per variation, and real visitors' thumbs add sat
 
 **Create the experiment** (once Step A2 is done):
 
-1. Open **Agents > Configs > Shopping assistant**. In the right-hand panel, under **Experiments**, click **Add experiment**. (Or go to **Experimentation > Experiments > Create experiment**.) If an experiment is already running on this config, open it and use **Edit design** instead: LaunchDarkly starts a new iteration with the changes.
+1. Open **Agent management > Configs > Shopping assistant**. In the right-hand panel, under **Experiments**, click **Add experiment**. (Or go to **Experimentation > Experiments > Create experiment**.) If an experiment is already running on this config, open it and use **Edit design** instead: LaunchDarkly starts a new iteration with the changes.
 2. **Name and hypothesis:** for example "Trail guide: kit prompt vs larger model" and "A kit prompt on Haiku suggests free-shipping kits more often than Control, with no slower answers."
 3. **Variations and audience targeting:**
    - Assignment method: **LaunchDarkly flag or config**.
