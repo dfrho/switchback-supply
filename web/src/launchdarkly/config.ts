@@ -3,8 +3,8 @@
  *
  * SETUP: the client-side ID is read from the VITE_LD_CLIENT_SIDE_ID variable
  * in the repo-root .env file (copy .env.example to .env and paste your own).
- * Find it in LaunchDarkly: gear icon > Projects > your project > Environments
- * > Test (or the environment you use) > Client-side ID.
+ * Find it in LaunchDarkly: gear icon > Settings > All environments > Test (or
+ * the environment you use) > SDK keys tab > Client-side ID.
  *
  * The client-side ID is not a secret. It is designed to ship in browser code.
  * Never put the server-side SDK key or a trigger URL in a VITE_ variable,

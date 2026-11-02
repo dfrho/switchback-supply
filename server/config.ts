@@ -5,8 +5,8 @@
  * not the browser's client-side ID. Put both secrets in the repo-root .env
  * (local) and in Vercel > Settings > Environment Variables (live), never with
  * a VITE_ prefix:
- *   LD_SDK_KEY=          LaunchDarkly > gear icon > Projects > your project >
- *                        Environments > Test (or yours) > SDK key
+ *   LD_SDK_KEY=          LaunchDarkly > gear icon > Settings > All environments >
+ *                        Test (or yours) > SDK keys tab > SDK key
  *   ANTHROPIC_API_KEY=   Anthropic Console > API keys
  */
 

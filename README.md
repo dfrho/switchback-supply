@@ -71,7 +71,7 @@ Any project works. These instructions use the **Test** environment. Whatever you
 
 ### Step 2: Copy your client-side ID
 
-In LaunchDarkly, open **Settings > (your project) > (your environment) > SDK keys**. Under **Client-side IDs**, copy the ID.
+In LaunchDarkly, click the **gear icon** (bottom left) > **Settings** > **All environments**, with your project selected at the top, then open your environment (**Test**) and its **SDK keys** tab. Under **Client-side IDs**, copy the ID.
 
 The client-side ID is **not a secret**. It is designed to ship in browser code. Do not use the **SDK key** here: that one is secret and belongs only on servers.
 
@@ -115,7 +115,7 @@ Now only `qa-tester-001` sees Express checkout. Everyone else still gets Classic
 
 Steps 6 to 8 can be done by hand (below) or with one command. The script creates the hero flag and the `beta-shoppers` segment if they are missing, then sets the targeting exactly as in Step 8 and turns the flag On. It also creates Part 1's two checkout metrics (see [Measuring the release](#3-measuring-the-release-the-checkout-completed-event)). It is safe to run again.
 
-1. Create an API access token: LaunchDarkly > **Organization settings** > **Authorization** > **Create token**, role **Writer**. It is shown once.
+1. Create an API access token: in LaunchDarkly, click the **gear icon** (bottom left) > **Settings** > **Authorization** (under Security) > **Create token**, role **Writer**. It is shown once.
 2. Add it to `.env` (see Step 9) as `LD_API_TOKEN=...`. Like the trigger URL, it is never prefixed with `VITE_` and never committed.
 3. If your project or environment keys are not `default` and `production`, set `LD_PROJECT_KEY` and `LD_ENVIRONMENT_KEY` too.
 4. Run `npm run ld:setup` (or `npm run ld:setup -- --dry-run` to see the changes first).
@@ -418,7 +418,7 @@ These steps add to the Part 1 and Part 2 setup above. They use the same LaunchDa
 **Step A1: Add the two server keys to `.env`.** The assistant runs on the server, because the model key must never reach a browser:
 
 ```bash
-LD_SDK_KEY=sdk-...          # LaunchDarkly > gear icon > Projects > your project > Environments > Test > SDK key
+LD_SDK_KEY=sdk-...          # LaunchDarkly > gear icon > Settings > All environments > Test > SDK keys tab > SDK key
 ANTHROPIC_API_KEY=sk-ant-... # console.anthropic.com > API keys
 ```
 
