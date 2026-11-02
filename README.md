@@ -119,7 +119,7 @@ Steps 6 to 8 can be done by hand (below) or with one command. The script creates
 
 1. Create an API access token: in LaunchDarkly, click the **gear icon** (lower left) > **Authorization** (under **Security** in the left navigation) > **Tokens** tab > **Create token** (top right). Choose the role **Writer**. The token is shown once.
 2. Add it to `.env` (see Step 9) as `LD_API_TOKEN=...`. Like the trigger URL, it is never prefixed with `VITE_` and never committed.
-3. If your project or environment keys are not `default` and `test`, change `LD_PROJECT_KEY` and `LD_ENVIRONMENT_KEY` in `.env` too.
+3. `.env` comes with `LD_ENVIRONMENT_KEY=test` (the environment this README uses) and `LD_PROJECT_KEY=default`. Change `LD_PROJECT_KEY` only if your project's key is different.
 4. Run `npm run ld:setup` (or `npm run ld:setup -- --dry-run` to see the changes first).
 
 The script also checks that the environment it changes is the one your `VITE_LD_CLIENT_SIDE_ID` belongs to. The configuration lives in `scripts/ld-targeting.mjs`, and a unit test keeps it in step with the Release Console's labels.
@@ -185,7 +185,7 @@ LD_TRIGGER_URL_CHECKOUT_OFF=your-generic-trigger-url
 | `VITE_LD_CLIENT_SIDE_ID` | The client-side ID from [Step 2](#step-2-copy-your-client-side-id): **gear icon** (lower left) > **All environments** > **Test** > **SDK keys** tab > **Client-side IDs**. Not a secret. |
 | `LD_TRIGGER_URL_CHECKOUT_OFF` | The Generic trigger URL you copied in [Step 4](#step-4-create-the-remediation-trigger). Treat it like a password. If you lost it, reset the trigger to get a new one. |
 
-Other values in `.env` come later: `LD_API_TOKEN` if you use `npm run ld:setup` ([Steps 6 to 8](#steps-6-to-8-the-fast-way-npm-run-ldsetup)), and `LD_SDK_KEY` and `ANTHROPIC_API_KEY` for the AI assistant ([Extra credit setup](#extra-credit-ai-configs)). `LD_PROJECT_KEY` and `LD_ENVIRONMENT_KEY` come pre-filled as `default` and `test`; change them only if your keys differ. Every variable in `.env.example` has a comment saying what it is, where to find it, and whether it is secret.
+Other values in `.env` come later: `LD_API_TOKEN` if you use `npm run ld:setup` ([Steps 6 to 8](#steps-6-to-8-the-fast-way-npm-run-ldsetup)), and `LD_SDK_KEY` and `ANTHROPIC_API_KEY` for the AI assistant ([Extra credit setup](#extra-credit-ai-configs)). `LD_ENVIRONMENT_KEY` comes pre-filled as `test`, the environment this README uses; `LD_PROJECT_KEY` comes as `default`, which you change only if your project's key is different. Every variable in `.env.example` has a comment saying what it is, where to find it, and whether it is secret.
 
 `.env` is git-ignored. The trigger URL is deliberately **not** prefixed with `VITE_`, because Vite bundles every `VITE_` variable into public browser code.
 
