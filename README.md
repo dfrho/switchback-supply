@@ -11,7 +11,7 @@ Switchback Supply plays the role of "ABC Company" from the exercise brief. Each 
 | Storefront | All | 25-product catalog with color and size variants, product pages, a persistent cart | Done |
 | **Part 1: Release and Remediate** | Engineering manager | Flag-wrapped checkout, live listener, test in production, flag trigger remediation, checkout metrics | Done |
 | **Part 2: Target** | Developer | Winter-Ready hero behind a flag, shopper contexts with attributes, individual and rule-based targeting | Done |
-| [**Extra credit: AI Configs**](#extra-credit-ai-configs) | AI product manager | AgentControl (formerly AI Configs) shopping assistant on Anthropic Claude: prompt and model changed live, a kill switch, Monitoring, and an experiment asking whether a better prompt can match a larger model | Built (experiment results to follow) |
+| [**Extra credit: AI Configs**](#extra-credit-ai-configs) | AI product manager | AgentControl (formerly AI Configs) shopping assistant on Anthropic Claude: prompt and model changed live, a kill switch, Monitoring, and an experiment asking whether a better prompt can match a larger model ([results](#results-the-larger-model-wins-on-kits-and-costs-more-to-get-there)) | Done |
 
 ---
 
@@ -511,6 +511,37 @@ npm run assistant:traffic -- --base-url https://your-site.vercel.app --count 900
 ```
 
 About 900 conversations (roughly 300 per variation) cost about $3 at current Claude prices; the script prints its estimate first, and at the end a summary per variation: answers, how many recommended a product, how many kits ship free, the average kit, and the average wait. Use a new `--start` range for each run, because LaunchDarkly keeps each shopper key in the same variation. Experiment results refresh periodically, so start the traffic a day before you need a decision.
+
+### Results: the larger model wins on kits, and costs more to get there
+
+> Synthetic shoppers, real replies. Every answer below is a real Claude response to a scripted shopper question on the live site, from the variation LaunchDarkly assigned. Only the shoppers are simulated.
+
+The run: 900 shoppers on October 30, 2026, in the Test environment, Bayesian at a 95% threshold. LaunchDarkly found **no sample ratio mismatch**, so the three-way split was even and the comparison is sound.
+
+**LaunchDarkly's verdict:** on the primary metric, Assistant kit ships free, **Treatment B (Claude Sonnet 5.5) is the winning variation.**
+
+The traffic script's own tally of the same 900 replies shows what that win costs:
+
+| Variation | Shoppers | Kit ships free (primary) | Average kit | Average wait (guardrail) |
+|---|---|---|---|---|
+| Control: Haiku 5.5, guide prompt | 311 | 74% | $349 | 2.1 s |
+| Treatment B: Sonnet 5.5, guide prompt | 297 | 82% | $379 | 3.0 s |
+| Treatment C: Haiku 5.5, kit prompt | 292 | 70% | $321 | 2.5 s |
+
+The shopper counts match LaunchDarkly's exposure counts exactly. The percentages, dollars, and wait times are the script's measurements; LaunchDarkly's Results tab reports the official probabilities for each metric. Waits are measured end to end from the script, so they include network time.
+
+What it means:
+
+- **The larger model builds bigger kits.** Same prompt, different model, and Sonnet's suggestions crossed the free-shipping line about 8 points more often than Control's.
+- **It pays for that in speed and cost.** Answers took about a second longer, and Sonnet costs about 20 times as much per token as Haiku (see `MODELS` in [`scripts/ld-ai-config.mjs`](scripts/ld-ai-config.mjs)).
+- **The kit prompt did not help.** Telling Haiku to suggest only what the trip needs, within budget, made it more restrained than Control, not less: fewer free-shipping kits and slower answers. The hypothesis was wrong, and the experiment showed it without a redeploy.
+
+**Decision:** keep **Control** as the default. Sonnet's lift is real, but not worth a slower answer for every shopper at about 20 times the token price. Two cheaper next steps, both a change in LaunchDarkly rather than in code:
+
+1. **Target the larger model where the value is.** Serve Sonnet only to high-value shoppers (for example, a rule on `loyaltyTier` is `gold`, the same attribute Part 2 targets) and keep Haiku for everyone else.
+2. **Try a prompt that asks for complete kits without the restraint**, and run it against Control the same way.
+
+In production, these metrics would be paired with an add-to-cart event from the chat's product cards and a quality signal (thumbs, or an [online evaluation](https://launchdarkly.com/docs/home/agentcontrol/online-evaluations)), so a decision rests on purchases and answer quality, not on what the guide suggested.
 
 ### How it works
 
