@@ -36,7 +36,7 @@ Decisions:
 - Feedback: tracker `resumptionToken` stays server-side inside an HMAC-signed token; `aiClient.createTracker(token, context).trackFeedback(...)`.
 - Experiment metric: custom conversion `assistant-recommended-product`, sent server-side when a real reply links at least one real catalog product. Synthetic shoppers (`scripts/assistant-traffic.mjs`, keys `synthetic-shopper-NNNN`, `trafficSource: synthetic`) ask real questions and get real Claude replies; no behavior is faked. About 300 conversations per variation.
 - Vercel: `api/assistant.ts` and `api/assistant-feedback.ts` (`export default { fetch }`), shared code in `server/`, Node SDK singleton, `waitForInitialization({ timeout })` in try/catch, `waitUntil(flush())` from `@vercel/functions`. Local dev: Vite middleware routes `/api/assistant*` to the same handlers.
-- Keys: `LD_SDK_KEY` and `ANTHROPIC_API_KEY` in Vercel (Sensitive) and `.env`, never `VITE_`. `LD_API_TOKEN` stays local only.
+- Keys: `LD_SDK_KEY` and `ANTHROPIC_API_KEY` in Vercel (Secret) and `.env`, never `VITE_`. `LD_API_TOKEN` stays local only.
 - Setup as code: extend `npm run ld:setup` (config, variations, custom model configs if needed, fallthrough, metric). Check request bodies against `https://app.launchdarkly.com/api/openapi.json`. The experiment itself is created in the dashboard (README steps).
 - Docs: https://launchdarkly.com/docs/home/agentcontrol, https://launchdarkly.com/docs/sdk/ai/node-js-legacy, https://launchdarkly.com/docs/sdk/features/ai-metrics, https://launchdarkly.com/docs/api/agentcontrol
 

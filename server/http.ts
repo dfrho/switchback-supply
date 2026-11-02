@@ -72,6 +72,8 @@ export async function handleAssistant(request: Request, defer: Defer): Promise<R
     const body = await readJson(request);
     const { deps, ld } = await getDeps();
     const reply = await answer(deps, body);
+    // Send this request's analytics events after the response, so the shopper never
+    // waits for them (Vercel's waitUntil).
     defer(ld.flush().catch(() => undefined));
     return Response.json(reply, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
@@ -84,6 +86,8 @@ export async function handleFeedback(request: Request, defer: Defer): Promise<Re
     const body = await readJson(request);
     const { deps, ld } = await getDeps();
     recordFeedback(deps, body);
+    // Send this request's analytics events after the response, so the shopper never
+    // waits for them (Vercel's waitUntil).
     defer(ld.flush().catch(() => undefined));
     return new Response(null, { status: 204 });
   } catch (error) {

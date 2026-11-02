@@ -144,10 +144,13 @@ export async function answer(deps: AssistantDeps, body: unknown): Promise<Assist
   const { variationKey, modelName } = tracker.getTrackData();
   const { system, messages } = toAnthropicMessages(config.messages ?? [], history, message);
 
+  // Start the clock for the response-time metric (step 4), measured around the model call only.
   const now = deps.now ?? Date.now;
   const started = now();
   let response: Anthropic.Message;
   try {
+    // trackMetricsOf times the call and records success or error for this variation;
+    // toMetrics (above) reads the token counts and marks a safety decline as an error.
     response = await tracker.trackMetricsOf(toMetrics, () =>
       deps.anthropic.messages.create({
         model: config.model!.name,

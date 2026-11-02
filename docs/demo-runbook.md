@@ -70,9 +70,9 @@ To show the raw reason from LaunchDarkly: DevTools > **Network**, filter `withRe
 
 ### Part 3: AI configs (4 minutes)
 
-1. Open the **Trail guide** (header) and ask "Weekend in the Tennessee mountains in November. What do I pack?" Point at the product cards and the label under the answer: model and variation, chosen by LaunchDarkly.
+1. Open the **Trail Guide** (upper right of the header) and ask "Weekend in the Tennessee mountains in November. What do I pack?" Point at the product cards and the label under the answer: model and variation, chosen by LaunchDarkly.
 2. **Kill switch:** turn **Shopping assistant** targeting **Off**, ask again: a polite fallback, no model called. Turn it back **On**.
-3. **Monitoring:** tokens, time to generate, cost, and thumbs, by variation.
+3. **Monitoring:** input and output cost, requests, and satisfaction from the thumbs buttons, by variation (Sonnet's average cost per answer is about 21 times Control's).
 4. **Experiment:** open the Results tab. Lead with the business question (can a better prompt match a bigger model at a fraction of the cost?), the primary metric, and the response-time guardrail. Mention that the shoppers are synthetic but every answer is a real model reply.
 5. **Only if no experiment is running:** set the default rule to **Treatment B** and ask again: the label changes to Sonnet with no deploy. Set it back to **Control**.
 
@@ -87,7 +87,7 @@ One shopper context drives the checkout release, the hero targeting, and the AI 
 | A flag change does not reach the page | Check the dashboard is on **Test**. Check the Release Console says Streaming. Reload once. |
 | Contexts, the Event debugger, or metrics stay empty | An ad blocker is on. Switch to the clean profile. |
 | `npm run remediate` fails | The trigger URL was reset. Copy the new URL into `.env` (`LD_TRIGGER_URL_CHECKOUT_OFF`), or turn the flag off in the dashboard and explain what the trigger would do. |
-| The trail guide only gives the fallback | Config targeting is Off, or `LD_SDK_KEY` / `ANTHROPIC_API_KEY` is missing in Vercel. Use the local dev server, or show Monitoring instead. |
+| The Trail Guide only gives the fallback | Config targeting is Off, or `LD_SDK_KEY` / `ANTHROPIC_API_KEY` is missing in Vercel. Use the local dev server, or show Monitoring instead. |
 | The hero does not match the expected rule | Someone edited targeting by hand. Run `npm run ld:setup` to restore it. |
 | The live site is down | Use `npm run dev` on localhost (needs `.env`); flags still come from LaunchDarkly, so this needs internet. |
 | Your internet is down | Switch to the recording or screenshots, say so once, and narrate what each step shows. |

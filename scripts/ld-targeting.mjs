@@ -26,6 +26,10 @@ export const BETA_SEGMENT = {
   rules: [{ clauses: [{ contextKind: 'user', attribute: 'betaTester', op: 'in', values: [true], negate: false }] }],
 };
 
+/**
+ * The Central region for rule 3 (Gold members in Central states). Must match
+ * CENTRAL_STATES in web/src/launchdarkly/config.ts; a unit test checks.
+ */
 export const CENTRAL_STATES = ['TN', 'TX', 'IL', 'MN', 'CO'];
 
 /** Evaluated top to bottom; the first match wins. Every target and rule serves true. */
