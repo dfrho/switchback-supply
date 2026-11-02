@@ -14,7 +14,7 @@ import type { LDAICompletionConfigDefault } from '@launchdarkly/server-sdk-ai';
 
 /**
  * AgentControl (formerly AI Configs) keys used by the app.
- * RECREATE THIS CONFIG: Agents > Configs > Create > Completion, key "shopping-assistant",
+ * RECREATE THIS CONFIG: Agent management > Configs > Create > Completion, key "shopping-assistant",
  * with the three variations in scripts/ld-ai-config.mjs, default rule serving "Control".
  * `npm run ld:setup` creates all of it for you.
  */

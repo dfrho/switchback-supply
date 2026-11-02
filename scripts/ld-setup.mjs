@@ -226,7 +226,7 @@ async function setupAssistant() {
 
   if (targeting.environments?.[ENVIRONMENT]?.enabled === false) {
     // The REST API has no "turn on" instruction for AgentControl targeting.
-    console.log(`  NOTE: targeting is Off in ${ENVIRONMENT}, so everyone gets the fallback. Turn it On in Agents > Configs > ${AI_CONFIG.key} > Targeting.`);
+    console.log(`  NOTE: targeting is Off in ${ENVIRONMENT}, so everyone gets the fallback. Turn it On in Agent management > Configs > ${AI_CONFIG.name} > Targeting.`);
   }
 
   await ensureMetric(RECOMMENDED_PRODUCT_METRIC);
