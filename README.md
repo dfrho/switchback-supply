@@ -115,7 +115,7 @@ Now only `qa-tester-001` sees Express checkout. Everyone else still gets Classic
 
 Steps 6 to 8 can be done by hand (below) or with one command. The script creates the hero flag and the `beta-shoppers` segment if they are missing, then sets the targeting exactly as in Step 8 and turns the flag On. It also creates Part 1's two checkout metrics (see [Measuring the release](#3-measuring-the-release-the-checkout-completed-event)). It is safe to run again.
 
-1. Create an API access token: in LaunchDarkly, click the **gear icon** (bottom left) > **Settings** > **Authorization** (under Security) > **Create token**, role **Writer**. It is shown once.
+1. Create an API access token: in LaunchDarkly, click the **gear icon** (lower left) > **Authorization** (under **Security** in the left navigation) > **Tokens** tab > **Create token** (top right). Choose the role **Writer**. The token is shown once.
 2. Add it to `.env` (see Step 9) as `LD_API_TOKEN=...`. Like the trigger URL, it is never prefixed with `VITE_` and never committed.
 3. If your project or environment keys are not `default` and `production`, set `LD_PROJECT_KEY` and `LD_ENVIRONMENT_KEY` too.
 4. Run `npm run ld:setup` (or `npm run ld:setup -- --dry-run` to see the changes first).
