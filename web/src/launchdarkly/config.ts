@@ -25,8 +25,10 @@ export const LD_ENDPOINTS = {
 
 /**
  * Flag keys used by the app. Each one must exist in your LaunchDarkly project
- * with "Available on client-side SDKs" turned on, or the SDK silently serves
- * the fallback value.
+ * and be available to client-side SDKs, or the SDK silently serves the fallback
+ * value. When creating a flag, tick Client-side SDKs under the Server only chip
+ * (SDK availability); on an existing flag, use the right-hand panel > Advanced
+ * controls > Available on client-side SDKs.
  */
 export const FLAGS = {
   /**

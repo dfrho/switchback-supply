@@ -7,7 +7,7 @@ Live site: https://web-puce-kappa-92.vercel.app (LaunchDarkly **Test** environme
 ## 30 minutes before
 
 **Browser**
-- [ ] Use a **clean Chrome profile** with no extensions. Ad blockers that use the EasyPrivacy filter list, such as Brave Shields and uBlock Origin, block `events.launchdarkly.com`: flags still work, but Live events, Contexts, metrics, and experiment results stay empty.
+- [ ] Use a **clean Chrome profile** with no extensions. Ad blockers that use the EasyPrivacy filter list, such as Brave Shields and uBlock Origin, block `events.launchdarkly.com`: flags still work, but the Event debugger, Contexts, metrics, and experiment results stay empty.
 - [ ] Open the live site and expand the Release Console (bottom left): the **SDK** row should read **Streaming**. Collapse it again before you start.
 - [ ] **SHOPPING AS:** Guest shopper, with your cart empty.
 
@@ -85,7 +85,7 @@ One shopper context drives the checkout release, the hero targeting, and the AI 
 | Symptom | Fix |
 |---|---|
 | A flag change does not reach the page | Check the dashboard is on **Test**. Check the Release Console says Streaming. Reload once. |
-| Contexts, Live events, or metrics stay empty | An ad blocker is on. Switch to the clean profile. |
+| Contexts, the Event debugger, or metrics stay empty | An ad blocker is on. Switch to the clean profile. |
 | `npm run remediate` fails | The trigger URL was reset. Copy the new URL into `.env` (`LD_TRIGGER_URL_CHECKOUT_OFF`), or turn the flag off in the dashboard and explain what the trigger would do. |
 | The trail guide only gives the fallback | Config targeting is Off, or `LD_SDK_KEY` / `ANTHROPIC_API_KEY` is missing in Vercel. Use the local dev server, or show Monitoring instead. |
 | The hero does not match the expected rule | Someone edited targeting by hand. Run `npm run ld:setup` to restore it. |

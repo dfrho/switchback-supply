@@ -26,7 +26,7 @@
  * SETUP (repo-root .env, never committed):
  *   LD_API_TOKEN=        Gear icon (lower left) > Authorization (under Security) > Tokens > Create token (role: Writer)
  *   LD_PROJECT_KEY=      optional, default "default"
- *   LD_ENVIRONMENT_KEY=  optional, default "production"
+ *   LD_ENVIRONMENT_KEY=  optional, default "test" (the environment the README uses)
  *   LD_API_URL=          optional, for LaunchDarkly's EU or federal instances
  *
  * Usage:
@@ -61,7 +61,7 @@ function loadEnv() {
 const env = loadEnv();
 const TOKEN = env.LD_API_TOKEN ?? '';
 const PROJECT = env.LD_PROJECT_KEY || 'default';
-const ENVIRONMENT = env.LD_ENVIRONMENT_KEY || 'production';
+const ENVIRONMENT = env.LD_ENVIRONMENT_KEY || 'test';
 const CLIENT_SIDE_ID = env.VITE_LD_CLIENT_SIDE_ID ?? '';
 const SDK_KEY = env.LD_SDK_KEY ?? '';
 // Override for LaunchDarkly's EU or federal instances (for example https://app.eu.launchdarkly.com).
