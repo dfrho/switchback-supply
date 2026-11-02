@@ -1,12 +1,12 @@
 # Switchback Supply
 
-A LaunchDarkly sample app: a mock eCommerce store (an outdoor gear retailer) that answers LaunchDarkly's Senior Solutions Engineer take-home exercise. The audience is LaunchDarkly SEs reviewing it as if it were delivered to a prospective customer, so **code comments, the README, and PR descriptions are part of the product**. Write them for that reader.
+A LaunchDarkly demo app: a mock eCommerce store (an outdoor gear retailer) that answers LaunchDarkly's Senior Solutions Engineer take-home exercise. The audience is LaunchDarkly SEs reviewing it as if it were delivered to a prospective customer, so **code comments, the README, and PR descriptions are part of the product**. Write them for that reader.
 
 - Part 1, Release and Remediate: `release-new-checkout` wraps the checkout drawer (Classic vs Express), a change listener swaps it live, and a flag trigger turns it off (`npm run remediate`).
 - Part 2, Target: `release-landing-hero` wraps the home page hero (current vs Winter-Ready), with shopper contexts, individual targeting, three ordered rules, and a segment.
 - Live at https://web-puce-kappa-92.vercel.app (Vercel, Test environment).
 - Extra credit, AI Configs: the Trail Guide chat (`web/src/components/ShoppingAssistant.tsx`) posts to `/api/assistant`, where `server/assistant.ts` evaluates the AgentControl config `shopping-assistant` (stable `@launchdarkly/server-sdk-ai` v2), calls Claude with `@anthropic-ai/sdk`, tracks the run, and sends the `assistant-recommended-product` experiment event.
-- Next: see `docs/claude/roadmap.md` (run the experiment, then the demo runbook).
+- Next: see `docs/claude/roadmap.md` (rehearse the demo on the live site).
 
 ## Commands
 

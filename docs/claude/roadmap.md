@@ -17,7 +17,7 @@ Status as of November 2, 2026. Work in this order. Each item is its own branch a
 | #9 | Extra credit: AgentControl shopping assistant on Claude, experiment iteration 1 |
 | #10 | Checkout metrics for `release-new-checkout`; model refusals tracked as errors |
 | #11 | Experiment iteration 2 design: kit prompt variation, free-shipping kit, kit value, and response-time metrics |
-| #12 | Demo runbook |
+| #12 | Demo runbook (since removed from the repo; kept locally and git-ignored) |
 | next | Experiment results in the README |
 
 Dropped by decision on October 29: the observability plus guarded rollout extra credit (not in the brief). The README mentions guarded rollouts only as the next rung of the remediation ladder.
@@ -50,9 +50,9 @@ Kit experiment (PR #11): ran as iteration 3, shoppers 1100 to 1999, October 30, 
 
 ## 3. Demo runbook and rehearsal
 
-Runbook written October 30, 2026: `docs/demo-runbook.md`. Rehearsal still to do.
+Runbook written October 30, 2026; removed from the repo November 2, 2026 and kept as a private, git-ignored local file. Rehearsal still to do.
 
-- A one-page runbook in the repo: pre-demo checklist (clean browser profile without ad blockers, flags in the expected starting state, trial still active), the Part 1 walkthrough, the Part 2 persona walkthrough, the AI assistant and experiment, and recovery steps.
+- A one-page private runbook: pre-demo checklist (clean browser profile without ad blockers, flags in the expected starting state, trial still active), the Part 1 walkthrough, the Part 2 persona walkthrough, the AI assistant and experiment, and recovery steps.
 - Rehearse end to end against the live Vercel URL before submission.
 
 ## Submission
