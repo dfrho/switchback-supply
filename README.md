@@ -11,7 +11,7 @@ Switchback Supply plays the role of "ABC Company" from the exercise brief. Each 
 | Storefront | All | 25-product catalog with color and size variants, product pages, a persistent cart | Done |
 | **Part 1: Release and Remediate** | Engineering manager | Flag-wrapped checkout, live listener, test in production, flag trigger remediation, checkout metrics | Done |
 | **Part 2: Target** | Developer | Winter-Ready hero behind a flag, shopper contexts with attributes, individual and rule-based targeting | Done |
-| [**Extra credit: AI Configs**](#extra-credit-ai-configs) | AI product manager | AgentControl (formerly AI Configs) shopping assistant on Anthropic Claude: prompt and model changed live, a kill switch, Monitoring, and an experiment asking whether a better prompt can match a larger model ([results](#results-the-larger-model-builds-bigger-kits-so-ship-it-behind-a-guardrail)) | Done |
+| [**Extra credit: AI Configs**](#extra-credit-ai-configs) | AI product manager | AgentControl (formerly AI Configs) shopping assistant on Anthropic Claude: prompt and model changed live, a kill switch, Monitoring, and an experiment asking whether a better prompt can match a larger model ([results](#results-the-larger-model-wins-on-kits-but-fails-the-speed-guardrail)) | Done |
 
 ---
 
@@ -512,36 +512,42 @@ npm run assistant:traffic -- --base-url https://your-site.vercel.app --count 900
 
 About 900 conversations (roughly 300 per variation) cost about $3 at current Claude prices; the script prints its estimate first, and at the end a summary per variation: answers, how many recommended a product, how many kits ship free, the average kit, and the average wait. Use a new `--start` range for each run, because LaunchDarkly keeps each shopper key in the same variation. Experiment results refresh periodically, so start the traffic a day before you need a decision.
 
-### Results: the larger model builds bigger kits, so ship it behind a guardrail
+### Results: the larger model wins on kits but fails the speed guardrail
 
 > Synthetic shoppers, real replies. Every answer below is a real Claude response to a scripted shopper question on the live site, from the variation LaunchDarkly assigned. Only the shoppers are simulated.
 
 The run: 900 shoppers on October 30, 2026, in the Test environment, Bayesian at a 95% threshold. LaunchDarkly found **no sample ratio mismatch**, so the three-way split was even and the comparison is sound.
 
-**LaunchDarkly's verdict:** on the primary metric, Assistant kit ships free, **Treatment B (Claude Sonnet 5.5) is the winning variation.**
+**Scorecard against the hypothesis** ("A kit prompt on Haiku suggests free-shipping kits more often than Control, with no slower answers"):
 
-The traffic script's own tally of the same 900 replies shows the size of that win and what it costs:
+| Test | Metric | Treatment B: Sonnet 5.5, guide prompt | Treatment C: Haiku 5.5, kit prompt |
+|---|---|---|---|
+| Better on the goal | Assistant kit ships free (primary) | **Pass.** LaunchDarkly names it the winning variation | **Fail.** Not better than Control |
+| No slower answers | Assistant response time (guardrail) | **Fail.** 2,906 ms against Control's 1,961 ms: +48% (95% interval +41% to +56%) | **Fail.** 2,376 ms: +21% (95% interval +12% to +30%) |
 
-| Variation | Shoppers | Kit ships free (primary) | Average kit | Average wait (guardrail) |
-|---|---|---|---|---|
-| Control: Haiku 5.5, guide prompt | 311 | 74% | $349 | 2.1 s |
-| Treatment B: Sonnet 5.5, guide prompt | 297 | 82% | $379 | 3.0 s |
-| Treatment C: Haiku 5.5, kit prompt | 292 | 70% | $321 | 2.5 s |
+Response times are LaunchDarkly's posterior means for the time spent in the model call, measured on the server. The hypothesis was about the kit prompt, and it is rejected on both counts. Sonnet, the comparison arm, wins the primary metric and fails the guardrail clearly.
 
-The shopper counts match LaunchDarkly's exposure counts exactly. The percentages, dollars, and wait times are the script's measurements; LaunchDarkly's Results tab reports the official probabilities for each metric. Waits are measured end to end from the script, so they include network time.
+The traffic script's own tally of the same 900 replies gives the size of each effect:
+
+| Variation | Shoppers | Kit ships free | Average kit |
+|---|---|---|---|
+| Control: Haiku 5.5, guide prompt | 311 | 74% | $349 |
+| Treatment B: Sonnet 5.5, guide prompt | 297 | 82% | $379 |
+| Treatment C: Haiku 5.5, kit prompt | 292 | 70% | $321 |
+
+The shopper counts match LaunchDarkly's exposure counts exactly; the percentages and dollars are the script's measurements, and LaunchDarkly's Results tab has the official figures for each metric.
 
 What it means:
 
-- **The larger model builds bigger kits.** Same prompt, a higher model tier: Sonnet's suggestions crossed the free-shipping line about 8 points more often than Control's, and its average kit was about $30 larger.
-- **The extra cost is small in dollars.** Sonnet's tokens cost about 20 times Haiku's (see `MODELS` in [`scripts/ld-ai-config.mjs`](scripts/ld-ai-config.mjs)), but a trail guide answer is short: roughly $0.0005 on Haiku against $0.009 on Sonnet, under one cent more per answer, against a kit about $30 larger. These per-answer figures are estimates; the config's Monitoring tab shows the real cost per variation.
-- **The real cost is speed.** Answers took about a second longer (3.0 s against 2.1 s). That is the trade-off to watch, which is why response time is the guardrail.
-- **The kit prompt did not help.** Telling Haiku to suggest only what the trip needs, within budget, made it more restrained than Control, not less: fewer free-shipping kits and slower answers. The hypothesis was wrong, and the experiment showed it without a redeploy.
+- **The larger model builds bigger kits, and makes shoppers wait for them.** About 8 points more free-shipping kits and a kit about $30 larger, for answers about a second slower (+48%).
+- **The kit prompt did not work.** Telling Haiku to suggest only what the trip needs, within budget, made it more restrained, not less, and slower. The hypothesis was wrong, and the experiment showed it without a redeploy.
+- **Cost was not one of the metrics.** As a separate estimate: Sonnet's tokens cost about 20 times Haiku's (see `MODELS` in [`scripts/ld-ai-config.mjs`](scripts/ld-ai-config.mjs)), but on a short answer that is under one cent more per answer, so speed, not money, is the trade-off. The config's Monitoring tab shows the measured cost per variation.
 
-**Decision: ship Sonnet, behind a guardrail.** A suggested kit is not a sale, and a second of waiting is noticeable in a chat, so the rollout should prove both in production instead of assuming them:
+**Decision: keep Control as the default, and do not ship Sonnet to everyone.** It failed the guardrail set before the test, and a guardrail only means something if a failure stops a release. What the experiment cannot tell us is whether a slower answer actually costs sales, because it measured suggestions, not purchases. The next step answers that safely:
 
 1. Add a purchase signal: an add-to-cart event from the chat's product cards, sent with `ldClient.track()` like the checkout event in Part 1.
-2. Release Sonnet with a [guarded rollout](https://launchdarkly.com/docs/home/releases/guarded-rollouts) on `shopping-assistant`: LaunchDarkly ramps it from a small share of shoppers to everyone while watching add-to-cart and response time, and rolls back on its own if either regresses. (Guarded rollouts depend on your LaunchDarkly plan.)
-3. If response time turns out to matter for most shoppers, keep the cost and speed of Haiku for everyone else and serve Sonnet only where the value is, for example a rule on `loyaltyTier` is `gold`, the same attribute Part 2 targets.
+2. Release Sonnet to a small, high-value audience first, for example a rule on `loyaltyTier` is `gold`, the same attribute Part 2 targets, behind a [guarded rollout](https://launchdarkly.com/docs/home/releases/guarded-rollouts) that watches add-to-cart and response time and rolls back on its own if either regresses. (Guarded rollouts depend on your LaunchDarkly plan.)
+3. Widen it only if bigger kits turn into more add-to-carts despite the wait.
 
 Every step is a change in LaunchDarkly or one `track()` call; the assistant's code does not change. A quality signal (thumbs, or an [online evaluation](https://launchdarkly.com/docs/home/agentcontrol/online-evaluations)) would complete the picture, so the decision rests on purchases and answer quality, not only on what the guide suggested.
 
