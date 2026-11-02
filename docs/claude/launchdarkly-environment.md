@@ -66,7 +66,7 @@ Production also holds 3 early test answers and 1 thumbs up from before `LD_SDK_K
 | Beta tester, Seattle | `shopper-beta-001` | silver, WA, `betaTester: true` | Rule 2 |
 | Gold member, Nashville | `shopper-gold-001` | gold, TN | Rule 3 |
 
-Every context also carries `country: US` and a detected `deviceType`. The console's toggles and selects edit the current shopper's attributes and call `identify()`; they never change rules.
+Every context also carries `country: US` and a detected `deviceType`. The console's toggles and selects edit the current shopper's attributes and call `identify()`; they never change rules. An edited shopper shows **· edited** and a **Reset** link, which re-chooses the persona and restores its attributes.
 
 ## Credentials (names only)
 

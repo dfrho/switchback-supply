@@ -95,6 +95,21 @@ export default function ReleaseConsole() {
               key: {attributes.key}
               {attributes.anonymous ? ' (anonymous)' : ''}
               {edited ? ' · edited' : ''}
+              {edited && (
+                // Choosing a persona restores its original attributes, but the dropdown only
+                // fires on a change, so re-picking the current persona would do nothing.
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className="link-btn console__reset"
+                    onClick={() => choosePersona(personaId)}
+                    aria-label={`Reset ${personas[personaId].label} to its original attributes`}
+                  >
+                    Reset
+                  </button>
+                </>
+              )}
             </p>
 
             <p className="console__label">Shopper attributes</p>

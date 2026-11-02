@@ -68,6 +68,22 @@ test.describe('release-landing-hero targeting', () => {
     await expect(decision(page)).toHaveText('No targeting matched; default rule served');
   });
 
+  test('Reset undoes attribute edits, and LaunchDarkly re-evaluates the original shopper', async ({ page, ld }) => {
+    await setup(page, ld);
+    await persona(page, 'gold');
+    await releaseConsole(page).getByLabel('State').selectOption('CA');
+    await expect(decision(page)).toHaveText('No targeting matched; default rule served');
+    await expect(releaseConsole(page).getByTestId('context-key')).toContainText('edited');
+
+    // Re-picking the persona already selected would not fire; Reset is the one-click undo.
+    await releaseConsole(page).getByRole('button', { name: 'Reset Gold member, Nashville to its original attributes' }).click();
+
+    await expect(decision(page)).toHaveText('Matched rule 3: Gold members in Central states');
+    await expect(hero(page)).toHaveAttribute('data-hero', 'winter-ready');
+    await expect(releaseConsole(page).getByLabel('State')).toHaveValue('TN');
+    await expect(releaseConsole(page).getByTestId('context-key')).not.toContainText('edited');
+  });
+
   test('editing attributes re-evaluates live, and the first matching rule wins', async ({ page, ld }) => {
     await setup(page, ld);
     await page.evaluate(() => ((window as unknown as { __noReload: boolean }).__noReload = true));
