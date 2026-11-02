@@ -46,7 +46,7 @@ Done when: chat panel on every page, a prompt or model change in LaunchDarkly ch
 
 Iteration 1 (recommended-a-product metric) saturated near 99%; LaunchDarkly picked Sonnet by 1.5 points, which does not justify its cost. Not reported in the README (David's decision); the story is in his private interview notes.
 
-Kit experiment (PR #11): ran as iteration 3, shoppers 1100 to 1999, October 30, 2026. LaunchDarkly names Sonnet the winner on free-shipping kits; decision: keep Control (speed and about 20x token cost), next steps are targeting Sonnet to gold members or a less restrained kit prompt. Results written to the README on November 2, 2026.
+Kit experiment (PR #11): ran as iteration 3, shoppers 1100 to 1999, October 30, 2026. LaunchDarkly names Sonnet the winner on free-shipping kits; decision (revised November 2 after costing it in dollars, under one cent more per answer for a kit about $30 larger): ship Sonnet behind a guarded rollout watching add-to-cart and response time; target it to gold members if speed matters for everyone else. Results written to the README on November 2, 2026.
 
 ## 3. Demo runbook and rehearsal
 
