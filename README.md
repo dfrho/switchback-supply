@@ -1,10 +1,10 @@
 # Switchback Supply
 
-**A LaunchDarkly sample app for a mock eCommerce store, an outdoor gear retailer.** It shows how a team ships features faster without adding risk: release a new checkout to production behind a feature flag, test it there with internal users first, and roll it back in under a second when something goes wrong, with no deploy and no page reload.
+**Switchback Supply is a LaunchDarkly demo app for a mock eCommerce store, an outdoor gear retailer.** It shows how a team ships features faster without adding risk: release a new checkout to production behind a feature flag, test it there with internal users first, and roll it back in under a second when something goes wrong, with no deploy and no page reload.
 
 Switchback Supply plays the role of "ABC Company" from the exercise brief. Each section is written for the persona the brief names, the way it would be handed to a prospective customer.
 
-**Live demo: [web-puce-kappa-92.vercel.app](https://web-puce-kappa-92.vercel.app/)** (a 12-minute presenter's script is in [docs/demo-runbook.md](docs/demo-runbook.md)), connected to the LaunchDarkly trial environment this repo was built against. Open the **Release Console** in the bottom-left corner to see the SDK connection, live flag values, and why LaunchDarkly chose each one. To run your own copy against your own LaunchDarkly account, follow [Setup, step by step](#setup-step-by-step), then [Deploy to Vercel](#deploy-to-vercel-optional) if you want a public URL.
+**Live demo: [web-puce-kappa-92.vercel.app](https://web-puce-kappa-92.vercel.app/)** (a 12-minute demo outline is in [docs/demo-runbook.md](docs/demo-runbook.md)), connected to the LaunchDarkly trial environment this repo was built against. Open the **Release Console** in the bottom-left corner to see the SDK connection, live flag values, and why LaunchDarkly chose each one. To run your own copy against your own LaunchDarkly account, follow [Setup, step by step](#setup-step-by-step), then [Deploy to Vercel](#deploy-to-vercel-optional) if you want a public URL.
 
 | Section | Persona | What it shows | Status |
 |---|---|---|---|
@@ -711,7 +711,7 @@ switchback-supply/
   scripts/catalog-source.py     Product copy, prices, and variants; generates data/catalog.json
   scripts/validate-catalog.mjs  Catalog checks run in CI
   vercel.json                   Build settings, function duration, and single-page app routing for Vercel
-  docs/demo-runbook.md          Presenter's checklist, 12-minute demo script, and recovery steps
+  docs/demo-runbook.md          Presenter's checklist, 12-minute demo outline, and recovery steps
   tests/e2e/                    Playwright end-to-end tests
   tests/mock-launchdarkly/      Local mock of LaunchDarkly's client-side endpoints for tests
   playwright.config.ts          End-to-end setup: mock server, dev server, production build

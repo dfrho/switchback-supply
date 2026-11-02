@@ -1,6 +1,6 @@
 # Switchback Supply
 
-A LaunchDarkly sample app: a mock eCommerce store (an outdoor gear retailer) that answers LaunchDarkly's Senior Solutions Engineer take-home exercise. The audience is LaunchDarkly SEs reviewing it as if it were delivered to a prospective customer, so **code comments, the README, and PR descriptions are part of the product**. Write them for that reader.
+A LaunchDarkly demo app: a mock eCommerce store (an outdoor gear retailer) that answers LaunchDarkly's Senior Solutions Engineer take-home exercise. The audience is LaunchDarkly SEs reviewing it as if it were delivered to a prospective customer, so **code comments, the README, and PR descriptions are part of the product**. Write them for that reader.
 
 - Part 1, Release and Remediate: `release-new-checkout` wraps the checkout drawer (Classic vs Express), a change listener swaps it live, and a flag trigger turns it off (`npm run remediate`).
 - Part 2, Target: `release-landing-hero` wraps the home page hero (current vs Winter-Ready), with shopper contexts, individual targeting, three ordered rules, and a segment.
