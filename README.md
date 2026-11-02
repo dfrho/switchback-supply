@@ -50,6 +50,8 @@ npm install
 npm run dev                 # open http://localhost:5173
 ```
 
+Parts 1 and 2 need only those two values. The Trail Guide chat also needs `LD_SDK_KEY` and `ANTHROPIC_API_KEY` ([Extra credit setup](#extra-credit-ai-configs)); without them the store still runs, and the chat answers with its fallback message ("The trail guide is off the clock right now...") instead of calling a model.
+
 ---
 
 ## Prerequisites and assumptions
@@ -60,6 +62,13 @@ npm run dev                 # open http://localhost:5173
 - **A modern browser** (Chrome, Edge, Firefox, or Safari). Some ad or privacy blockers block requests to LaunchDarkly; if the console says "Timed out," allow `launchdarkly.com` for `localhost`.
 - **A LaunchDarkly account.** A free trial works: [launchdarkly.com/start-trial](https://launchdarkly.com/start-trial/). Flag triggers are an Enterprise feature, which the trial includes.
 - Port **5173** is free on your machine.
+
+Only for the optional parts:
+
+- **A LaunchDarkly API access token with the Writer role**, for `npm run ld:setup` ([Steps 6 to 8, the fast way](#steps-6-to-8-the-fast-way-npm-run-ldsetup)). Without it, follow the dashboard steps instead.
+- **An Anthropic account with an API key and billing set up**, for the Trail Guide ([Extra credit](#extra-credit-ai-configs)). Every answer is a paid model call; set a monthly spend limit in the Anthropic Console.
+- **A Vercel account**, only to [deploy your own copy](#deploy-to-vercel-optional).
+- **Python 3**, only to regenerate the catalog with `npm run catalog`.
 
 ---
 
@@ -324,6 +333,10 @@ LaunchDarkly credits each event to the checkout that shopper was served, so thes
 | Products, prices, colors, sizes | `scripts/catalog-source.py`, then run `npm run catalog` |
 | Product photos | Add `web/public/products/<product-id>.webp`, then run `npm run catalog` |
 | Trigger URL | `.env` (`LD_TRIGGER_URL_CHECKOUT_OFF`) |
+| API access token for `npm run ld:setup` | `.env` (`LD_API_TOKEN`) |
+| Server-side SDK key and Anthropic key (Trail Guide) | `.env` (`LD_SDK_KEY`, `ANTHROPIC_API_KEY`); on Vercel, the project's environment variables |
+| AgentControl config key and server metric events | `server/config.ts` (`AI_CONFIGS`, `METRIC_EVENTS`) |
+| Assistant prompts, models, and variations | `scripts/ld-ai-config.mjs` (a unit test keeps its keys in step with `server/config.ts`) |
 
 ---
 
