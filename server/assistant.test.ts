@@ -3,7 +3,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { LDFeedbackKind, type LDAICompletionConfig, type LDAIConfigTracker } from '@launchdarkly/server-sdk-ai';
 import { answer, effortFrom, maxTokensFrom, recordFeedback, toAnthropicMessages, toMetrics, type AssistantDeps } from './assistant.js';
 import { findRecommendedProducts } from './catalog.js';
-import { ERROR_REPLY, FALLBACK_REPLY, METRIC_EVENTS } from './config.js';
+import { ERROR_REPLY, FALLBACK_REPLY, LIMITS, METRIC_EVENTS } from './config.js';
 import { createTokenSigner } from './tokens.js';
 
 const shopper = { key: 'shopper-gold-001', anonymous: false, loyaltyTier: 'gold', state: 'TN', country: 'US', deviceType: 'desktop', betaTester: false };
@@ -193,6 +193,17 @@ describe('answer', () => {
     const usage = { input_tokens: 10, output_tokens: 2 };
     expect(toMetrics({ stop_reason: 'refusal', usage } as never)).toEqual({ success: false, tokens: { input: 10, output: 2, total: 12 } });
     expect(toMetrics({ stop_reason: 'end_turn', usage } as never).success).toBe(true);
+  });
+
+  it('trims each earlier turn so a caller cannot pad history to inflate the model call', async () => {
+    const { deps, create } = fakeDeps();
+    const history = [
+      { role: 'user', content: 'a'.repeat(LIMITS.historyChars * 2) },
+      { role: 'assistant', content: 'b'.repeat(LIMITS.historyChars * 2) },
+    ];
+    await answer(deps, { message: 'Hi', history, shopper });
+    const [params] = vi.mocked(create).mock.calls[0] as unknown as [Anthropic.MessageCreateParamsNonStreaming];
+    expect(params.messages.map((m) => (m.content as string).length)).toEqual([LIMITS.historyChars, LIMITS.historyChars, 2]);
   });
 
   it('rejects empty, oversized, and malformed requests', async () => {

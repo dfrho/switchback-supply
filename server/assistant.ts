@@ -54,7 +54,7 @@ function parseHistory(input: unknown): Turn[] {
     if ((turn.role !== 'user' && turn.role !== 'assistant') || typeof turn.content !== 'string') {
       throw new BadRequest('Invalid history.');
     }
-    return { role: turn.role, content: turn.content.slice(0, 4000) };
+    return { role: turn.role, content: turn.content.slice(0, LIMITS.historyChars) };
   });
 }
 

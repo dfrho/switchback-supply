@@ -9,7 +9,14 @@ import { toLDContext, type ShopperAttributes } from '../web/src/launchdarkly/con
  * account instead of trusting the browser; this demo has no login.
  */
 
-export class BadRequest extends Error {}
+/** A request the server refuses. `status` is the HTTP status to answer with (400 unless set). */
+export class BadRequest extends Error {
+  readonly status: number;
+  constructor(message: string, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
 
 const TIERS = new Set(['none', 'silver', 'gold']);
 const DEVICES = new Set(['desktop', 'mobile']);

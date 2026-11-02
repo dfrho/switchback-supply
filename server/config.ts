@@ -65,6 +65,14 @@ export const LIMITS = {
   messageChars: 500,
   historyTurns: 10,
   /**
+   * Per earlier turn. A guide answer is under 150 words (about 1,000 characters),
+   * so this keeps real conversations whole while stopping a caller from padding
+   * history to inflate the paid model call.
+   */
+  historyChars: 1_500,
+  /** Largest request body accepted, in bytes. Real requests are a few kilobytes. */
+  bodyBytes: 20_000,
+  /**
    * Used when a variation does not set max_tokens; Anthropic requires a value.
    * Current Claude models think before answering, and thinking counts toward this cap.
    */
