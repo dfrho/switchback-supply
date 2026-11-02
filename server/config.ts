@@ -3,7 +3,7 @@
  *
  * SETUP: the assistant runs on the server, so it uses the server-side SDK key,
  * not the browser's client-side ID. Put both secrets in the repo-root .env
- * (local) and in Vercel > Settings > Environment Variables (live), never with
+ * (local) and in Vercel > your project > Environment Variables (live), never with
  * a VITE_ prefix:
  *   LD_SDK_KEY=          LaunchDarkly > gear icon (lower left) > All environments >
  *                        Test (or yours) > SDK keys tab > SDK key
@@ -15,7 +15,7 @@ import type { LDAICompletionConfigDefault } from '@launchdarkly/server-sdk-ai';
 /**
  * AgentControl (formerly AI Configs) keys used by the app.
  * RECREATE THIS CONFIG: Agent management > Configs > Create > Completion, key "shopping-assistant",
- * with the three variations in scripts/ld-ai-config.mjs, default rule serving "Control".
+ * with the four variations in scripts/ld-ai-config.mjs, default rule serving "Control".
  * `npm run ld:setup` creates all of it for you.
  */
 export const AI_CONFIGS = {

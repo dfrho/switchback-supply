@@ -77,18 +77,20 @@ The client-side ID is **not a secret**. It is designed to ship in browser code. 
 
 ### Step 3: Recreate the feature flag
 
-Create a flag with **exactly** these settings:
+From **Feature management > Flags**, click **Create flag** > **Create from scratch** (a blank boolean flag, not a template), then fill in the form **exactly** like this:
 
-| Setting | Value |
+| Form field | Value |
 |---|---|
-| Name | Release new checkout |
-| Key | `release-new-checkout` |
-| Type | Boolean (`true` / `false`) |
-| Off variation | `false` |
-| **Available on client-side SDKs** | **On** (in the flag's right sidebar, under Advanced controls) |
-| Permanent flag | Off (this is a temporary release flag, to be removed after full rollout) |
+| Name | `Release new checkout` |
+| Key | `release-new-checkout` (it cannot be changed later) |
+| Variations | **Boolean**, already selected. `true` is Express checkout, `false` is Classic |
+| "Serve **false** when the flag is off" | Already set; leave it |
+| **Server only** chip (bottom of the form) | Click it, and under **SDK availability** tick **Client-side SDKs** |
+| **Temporary** chip | Leave it: this is a release flag, to be removed after full rollout |
 
-> If "Available on client-side SDKs" is off, the browser silently receives the fallback value (`false`) and the flag will appear to do nothing. This is the most common setup mistake.
+> If the flag is not available to client-side SDKs, the browser silently receives the fallback value (`false`) and the flag will appear to do nothing. This is the most common setup mistake. If you missed it when creating, open the flag, then its right-hand panel > **Advanced controls** > **Available on client-side SDKs**.
+>
+> Do not use a template from the **Create flag** menu: **Release** and **Kill switch** pre-fill settings that differ from this table.
 
 Leave the flag **Off** for now.
 
@@ -105,7 +107,7 @@ Treat the trigger URL like a password: anyone who has it can turn the flag off.
 
 To test in production, give QA the new checkout before anyone else:
 
-1. Open the flag's **Targeting** tab in your environment.
+1. From the **Feature management > Flags** menu, open **Release new checkout** > **Targeting** in your environment.
 2. Under **Individual targets**, add the context key `qa-tester-001` to the **true** variation.
 3. Leave the default rule serving **false**, turn the flag **On**, and save.
 
@@ -113,11 +115,11 @@ Now only `qa-tester-001` sees Express checkout. Everyone else still gets Classic
 
 ### Steps 6 to 8, the fast way: `npm run ld:setup`
 
-Steps 6 to 8 can be done by hand (below) or with one command. The script creates the hero flag and the `beta-shoppers` segment if they are missing, then sets the targeting exactly as in Step 8 and turns the flag On. It also creates Part 1's two checkout metrics (see [Measuring the release](#3-measuring-the-release-the-checkout-completed-event)). It is safe to run again.
+Steps 6 to 8 can be done by hand (below) or with one command. The script creates the hero flag and the `beta-shoppers` segment if they are missing, then sets the targeting exactly as in Step 8 and turns the flag On. It also creates Part 1's two checkout metrics (see [Measuring the release](#5-measuring-the-release-the-checkout-completed-event)). It is safe to run again.
 
 1. Create an API access token: in LaunchDarkly, click the **gear icon** (lower left) > **Authorization** (under **Security** in the left navigation) > **Tokens** tab > **Create token** (top right). Choose the role **Writer**. The token is shown once.
 2. Add it to `.env` (see Step 9) as `LD_API_TOKEN=...`. Like the trigger URL, it is never prefixed with `VITE_` and never committed.
-3. If your project or environment keys are not `default` and `production`, set `LD_PROJECT_KEY` and `LD_ENVIRONMENT_KEY` too.
+3. `.env` comes with `LD_ENVIRONMENT_KEY=test` (the environment this README uses) and `LD_PROJECT_KEY=default`. Change `LD_PROJECT_KEY` only if your project's key is different.
 4. Run `npm run ld:setup` (or `npm run ld:setup -- --dry-run` to see the changes first).
 
 The script also checks that the environment it changes is the one your `VITE_LD_CLIENT_SIDE_ID` belongs to. The configuration lives in `scripts/ld-targeting.mjs`, and a unit test keeps it in step with the Release Console's labels.
@@ -126,33 +128,34 @@ Why this exists: in a brand-new environment, the dashboard's attribute dropdown 
 
 ### Step 6: Recreate the Part 2 hero flag
 
-Create a second flag with **exactly** these settings:
+From **Feature management > Flags**, click **Create flag** > **Create from scratch** again, and fill in the form **exactly** like this:
 
-| Setting | Value |
+| Form field | Value |
 |---|---|
-| Name | Release landing hero |
+| Name | `Release landing hero` |
 | Key | `release-landing-hero` |
-| Type | Boolean (`true` = Winter-Ready hero, `false` = current hero) |
-| Off variation | `false` |
-| **Available on client-side SDKs** | **On** |
-| Permanent flag | Off |
+| Variations | **Boolean**, already selected. `true` shows the Winter-Ready hero, `false` the current hero. Optionally click the chips to name them **Winter-Ready hero** and **Current hero** (as `npm run ld:setup` does) |
+| "Serve **false** when the flag is off" | Already set; leave it |
+| **Server only** chip | Click it, and under **SDK availability** tick **Client-side SDKs** |
+| **Temporary** chip | Leave it |
 
 ### Step 7: Create the `beta-shoppers` segment
 
-In LaunchDarkly, open **Segments** and create a **rule-based** segment:
+In LaunchDarkly, go to **Audiences > Segments**, make sure **Test** is selected (top right), and click **Create segment** (top right). Segments belong to one environment, so the dialog says "Create a segment in Test". In **Step 1 of 2: Select a segment kind**, choose **Rule-based segments**, then fill in:
 
 | Setting | Value |
 |---|---|
-| Name and key | `beta-shoppers` |
+| Name | `Beta shoppers` |
+| Key | `beta-shoppers` |
 | Rule | Context kind `user`, attribute `betaTester` **is one of** `true` (boolean, not the string "true") |
 
-If `betaTester` is not in the attribute dropdown, LaunchDarkly has not yet received a context with it: run the app, switch the Release Console to **Beta tester, Seattle**, and wait for the context to appear on the **Contexts** page, or use `npm run ld:setup`.
+If `betaTester` is not in the attribute dropdown, LaunchDarkly has not yet received a context with it: run the app, switch the Release Console to **Beta tester, Seattle**, and wait for the context to appear in **Audiences > Contexts**, or use `npm run ld:setup`.
 
 Segments let several flags reuse one audience definition, which is how LaunchDarkly recommends managing early-access groups.
 
 ### Step 8: Target the hero
 
-Open `release-landing-hero` > **Targeting** in your environment and set it up **in this order** (LaunchDarkly checks top to bottom and stops at the first match):
+From the **Feature management > Flags** menu, open **Release landing hero** (`release-landing-hero`) > **Targeting** in your environment and set it up **in this order** (LaunchDarkly checks top to bottom and stops at the first match):
 
 | Order | Section | Setting | Serve |
 |---|---|---|---|
@@ -170,12 +173,19 @@ Turn the flag **On** and save. If you add, remove, or reorder rules, update `HER
 cp .env.example .env
 ```
 
-Open `.env` and fill in both values:
+Open `.env` and fill in two values from earlier steps:
 
 ```bash
 VITE_LD_CLIENT_SIDE_ID=your-client-side-id
 LD_TRIGGER_URL_CHECKOUT_OFF=your-generic-trigger-url
 ```
+
+| Variable | Where it comes from |
+|---|---|
+| `VITE_LD_CLIENT_SIDE_ID` | The client-side ID from [Step 2](#step-2-copy-your-client-side-id): **gear icon** (lower left) > **All environments** > **Test** > **SDK keys** tab > **Client-side IDs**. Not a secret. |
+| `LD_TRIGGER_URL_CHECKOUT_OFF` | The Generic trigger URL you copied in [Step 4](#step-4-create-the-remediation-trigger). Treat it like a password. If you lost it, reset the trigger to get a new one. |
+
+Other values in `.env` come later: `LD_API_TOKEN` if you use `npm run ld:setup` ([Steps 6 to 8](#steps-6-to-8-the-fast-way-npm-run-ldsetup)), and `LD_SDK_KEY` and `ANTHROPIC_API_KEY` for the AI assistant ([Extra credit setup](#extra-credit-ai-configs)). `LD_ENVIRONMENT_KEY` comes pre-filled as `test`, the environment this README uses; `LD_PROJECT_KEY` comes as `default`, which you change only if your project's key is different. Every variable in `.env.example` has a comment saying what it is, where to find it, and whether it is secret.
 
 `.env` is git-ignored. The trigger URL is deliberately **not** prefixed with `VITE_`, because Vite bundles every `VITE_` variable into public browser code.
 
@@ -190,11 +200,11 @@ Open [http://localhost:5173](http://localhost:5173). Click the **Release Console
 
 ### Deploy to Vercel (optional)
 
-The store is a static single-page app, so any static host works. The repo includes a `vercel.json` for [Vercel](https://vercel.com/docs/project-configuration) that sets the install command (`npm ci`), the build command (`npm run build`), the output folder (`web/dist`), and a rewrite so deep links like `/products/ridgeline-45` load the app.
+The store is a single-page app, and the AI assistant adds two Vercel Functions in `api/`. A static host can serve Parts 1 and 2, but the assistant needs Vercel (or another host that runs the functions). The repo includes a `vercel.json` for [Vercel](https://vercel.com/docs/project-configuration) that sets the install command (`npm ci`), the build command (`npm run build`), the output folder (`web/dist`), and a rewrite so deep links like `/products/ridgeline-45` load the app.
 
 1. In Vercel, **Add New > Project** and import your fork of this repository.
 2. Leave **Root Directory** as the repository root. Vercel reads `vercel.json` only from that folder; if Root Directory is `web`, the build looks for a `dist` folder that does not exist there and fails with `No Output Directory named "dist" found`. Any framework preset works, because `vercel.json` overrides its build settings, but keep the **Override** toggles off.
-3. Under **Environment Variables**, add `VITE_LD_CLIENT_SIDE_ID` with the same client-side ID as your `.env`. Do not add the trigger URL or the API token: they are only used by scripts on your machine.
+3. Under **Environment Variables**, add `VITE_LD_CLIENT_SIDE_ID` with the same client-side ID as your `.env`. Do not add the trigger URL or the API token: they are only used by scripts on your machine. If you set up the AI assistant ([Extra credit](#extra-credit-ai-configs)), also add `LD_SDK_KEY` and `ANTHROPIC_API_KEY`, marked **Sensitive** (Step A4). Part 2 needs nothing extra here: its targeting lives in LaunchDarkly.
 4. Deploy. The Release Console on the live URL should show **SDK: Streaming**, and flag changes in LaunchDarkly should reach the live site with no redeploy.
 
 `VITE_` variables are read at build time, so redeploy after changing the client-side ID.
@@ -235,8 +245,14 @@ The trigger turns the flag off, the drawer reverts to Classic live, and the flag
 ### 1. One client, one stream: `web/src/main.tsx`
 
 ```tsx
-const LDProvider = createLDReactProvider(LD_CLIENT_SIDE_ID, shoppers.guest.context, {
-  ldOptions: { streaming: true, useCamelCaseFlagKeys: false },
+const LDProvider = createLDReactProvider(LD_CLIENT_SIDE_ID, toLDContext(personas.guest.attributes), {
+  ldOptions: {
+    streaming: true, // LaunchDarkly pushes flag changes to the browser
+    useReport: true, // the shopper's context travels in request bodies, never in URLs
+    withReasons: true, // each value comes with LaunchDarkly's evaluation reason (Release Console)
+    useCamelCaseFlagKeys: false,
+    // plus optional Relay Proxy endpoints from VITE_LD_* (left out here)
+  },
 });
 ```
 
@@ -252,12 +268,13 @@ const showNewCheckout = useBoolVariation('release-new-checkout', false);
 useEffect(() => {
   const handleCheckoutFlagChange = () => {
     const isOn = ldClient.boolVariation('release-new-checkout', false);
+    // Ignores the initial load and labels shopper switches as switches, not releases; see the file.
     showToast(/* release or rollback */);
     logEvent(/* timestamped entry for the Release Console */);
   };
   ldClient.on('change:release-new-checkout', handleCheckoutFlagChange);
   return () => ldClient.off('change:release-new-checkout', handleCheckoutFlagChange);
-}, [ldClient, showToast, logEvent]);
+}, [ldClient, showToast, logEvent, isSwitchingRef]);
 
 return showNewCheckout ? <NewCheckout /> : <ClassicCheckout />;
 ```
@@ -267,7 +284,17 @@ return showNewCheckout ? <NewCheckout /> : <ClassicCheckout />;
 - The cleanup function unsubscribes with the same function reference, so listeners never pile up.
 - The fallback `false` means shoppers get the known-good Classic checkout if LaunchDarkly is ever unreachable.
 
-### 3. Measuring the release: the `checkout-completed` event
+### 3. Contexts and test in production: `web/src/launchdarkly/contexts.ts`
+
+Guests get an anonymous context with a random, device-stable key (no personal data, and a consistent experience across visits). The QA tester has a fixed key, `qa-tester-001`, which is what individual targeting matches. The Release Console switches between them with `ldClient.identify()`, which swaps the context and refetches flag values without a reload.
+
+### 4. Remediation: `scripts/remediate.sh`
+
+Turns the checkout flag off from the command line, the way a monitoring tool would when an alert fires. The script sends one POST to the flag's trigger URL (a secret URL LaunchDarkly generates), with an optional incident label that LaunchDarkly records in the flag's History. It reads only `LD_TRIGGER_URL_CHECKOUT_OFF` from `.env` and never prints it.
+
+### 5. Measuring the release: the `checkout-completed` event
+
+*Beyond the brief:* Part 1 asks for release and remediation. This adds the measurement that lets the same flag be judged by results, and is the prerequisite for the guarded rollout described in [Beyond the manual trigger](#beyond-the-manual-trigger).
 
 A flag that can only say "on" or "off" cannot tell you whether the new checkout is better. When a shopper places an order, the drawer sends a [custom event](https://launchdarkly.com/docs/sdk/features/events) with the order total as its value:
 
@@ -282,15 +309,7 @@ ldClient.track('checkout-completed', { checkout: 'express', items: 2 }, orderTot
 | `checkout-completed` | Conversion | Did the shopper place an order? |
 | `checkout-order-value` | [Value](https://launchdarkly.com/docs/home/metrics/custom-numeric), dollars | Order dollars per shopper. Shoppers who did not order count as $0, so it reflects both conversion and order size |
 
-LaunchDarkly credits each event to the checkout that shopper was served, so these metrics can compare Express with Classic in an experiment, or be watched by a guarded rollout. The event carries no personal data. To see events arrive, open **Metrics** in LaunchDarkly and check the metric's event activity, or watch **Live events**. (Ad blockers stop these events; see [Troubleshooting](#troubleshooting).)
-
-### 4. Contexts and test in production: `web/src/launchdarkly/contexts.ts`
-
-Guests get an anonymous context with a random, device-stable key (no personal data, and a consistent experience across visits). The QA tester has a fixed key, `qa-tester-001`, which is what individual targeting matches. The Release Console switches between them with `ldClient.identify()`, which swaps the context and refetches flag values without a reload.
-
-### 5. Remediation: `scripts/remediate.sh`
-
-A `POST` to the Generic trigger URL with an optional JSON body (`eventName`, `url`) that labels the change in flag history. The script reads only `LD_TRIGGER_URL_CHECKOUT_OFF` from `.env` and never prints it.
+LaunchDarkly credits each event to the checkout that shopper was served, so these metrics can compare Express with Classic in an experiment, or be watched by a guarded rollout. The event carries no personal data. To see events arrive, open **Measurement > Metrics > Checkout completed** in LaunchDarkly (**Activity** tab), or watch them live in **Observability > Event debugger**. (Ad blockers stop these events; see [Troubleshooting](#troubleshooting).)
 
 ### Where to change things
 
@@ -434,7 +453,7 @@ npm run ld:setup
 It adds four things:
 
 1. Claude model configs, but only if your project does not already have them.
-2. The `shopping-assistant` Completion config, with the three variations above.
+2. The `shopping-assistant` Completion config, with the four variations above.
 3. A default rule that serves **Control**. LaunchDarkly already points a new config's default rule at the first variation created, which is Control here. The script sets it explicitly so the result never depends on creation order.
 4. The `assistant-recommended-product` metric.
 
@@ -447,12 +466,12 @@ To do the same by hand:
 
 **Step A3: Run it.** Restart `npm run dev`, because Vite reads `.env` only at startup. Open the **Trail guide** and ask a question. The label under the answer should read **Claude Haiku 5.5 · variation control**.
 
-**Step A4 (live site): add the keys to Vercel.** Go to Vercel > Settings > Environment Variables and add `LD_SDK_KEY` and `ANTHROPIC_API_KEY`. Mark both **Sensitive**, then redeploy. The chat calls two Vercel Functions in [`api/`](api/), which run the same code as the dev server.
+**Step A4 (live site): add the keys to Vercel.** Go to Vercel > your project > **Environment Variables** (left sidebar) and add `LD_SDK_KEY` and `ANTHROPIC_API_KEY`. Mark both **Sensitive**, then redeploy. The chat calls two Vercel Functions in [`api/`](api/), which run the same code as the dev server.
 
 ### Demo walkthrough (about 3 minutes)
 
 1. **Ask a question.** Open the Trail guide and ask "Which headlamp is best for under $60?". The label shows Control on Claude Haiku 5.5.
-2. **Change the model with no deploy.** In LaunchDarkly, open `shopping-assistant` > **Targeting**, set the default rule to **Treatment B**, and save (only when no experiment is running on the config; during an experiment, the experiment controls the default rule, so show its Results tab instead). Ask again. The label now reads Claude Sonnet 5.5. No code changed, nothing was redeployed, and the page was not reloaded.
+2. **Change the model with no deploy.** In LaunchDarkly, open **Agent management > Configs > Shopping assistant** > **Targeting**, set the default rule to **Treatment B**, and save (only when no experiment is running on the config; during an experiment, the experiment controls the default rule, so show its Results tab instead). Ask again. The label now reads Claude Sonnet 5.5. No code changed, nothing was redeployed, and the page was not reloaded.
 3. **Change the prompt live.** Open the **Variations** tab, edit Control's prompt (for example, "Answer in exactly two sentences"), and save. The next answer follows the new prompt.
 4. **Turn the AI off.** Turn the config's targeting **Off**. The next question gets a polite fallback and a link to the shop, and no model is called. Turn it back on and the guide returns. This is Part 1's kill switch, applied to AI.
 5. **Show the data.** Open the **Monitoring** tab. It shows tokens, time to generate, generations, errors, cost, and satisfaction from the thumbs buttons, each broken out by variation. Data updates about once a minute.
@@ -618,13 +637,13 @@ The end-to-end tests never contact real LaunchDarkly or Anthropic and do not use
 |---|---|
 | Page shows "Almost at the trailhead" | `VITE_LD_CLIENT_SIDE_ID` is empty. Fill in `.env` and restart `npm run dev`. |
 | Console shows "Timed out" or "Failed" | Wrong client-side ID, no network, or a browser extension blocking LaunchDarkly. The app keeps working on fallback values. |
-| Flag changes do nothing | "Available on client-side SDKs" is off for the flag, or the flag lives in a different environment than your client-side ID. |
+| Flag changes do nothing | The flag is not available to client-side SDKs (fix it in the flag's right-hand panel > **Advanced controls** > **Available on client-side SDKs**), or the flag lives in a different environment than your client-side ID. |
 | QA tester does not get Express checkout | The flag must be **On** for individual targets to apply, and the key must be exactly `qa-tester-001`. |
 | The hero never changes for any persona | Check that `release-landing-hero` exists, is **On**, is available to client-side SDKs, and has the targeting from Step 8. |
 | The console names the wrong rule | The rule order in LaunchDarkly differs from `HERO_TARGETING` in `web/src/launchdarkly/config.ts`; make them match. |
-| An attribute is missing from a dashboard dropdown | LaunchDarkly lists only attributes it has received. Switch personas in the Release Console and wait for **Contexts** to update, or use `npm run ld:setup`. |
-| Contexts and Live events stay empty, but flags work | Analytics events are being blocked. Ad blockers that use the EasyPrivacy filter list block `events.launchdarkly.com` (rule `\|\|events.launchdarkly.com^$third-party`), for example Brave Shields, and uBlock Origin, which enables that list by default. In DevTools > Network, those requests show `(blocked:other)`. Allow the domain or use a clean browser profile. Flags keep working, because the flag hosts (`clientsdk` and `clientstream.launchdarkly.com`) are not on the list and evaluation does not depend on events. |
-| `npm run ld:setup` says the client-side ID belongs to another environment | Your app is connected to the environment it names. Set `LD_ENVIRONMENT_KEY` to that key, or copy the other environment's client-side ID into `.env`. Environments created at the same time have IDs that start with the same characters, so compare the whole ID. |
+| An attribute is missing from a dashboard dropdown | LaunchDarkly lists only attributes it has received. Switch personas in the Release Console and wait for **Audiences > Contexts** to update, or use `npm run ld:setup`. |
+| Contexts and the Event debugger stay empty, but flags work | Analytics events are being blocked. Ad blockers that use the EasyPrivacy filter list block `events.launchdarkly.com` (rule `\|\|events.launchdarkly.com^$third-party`), for example Brave Shields, and uBlock Origin, which enables that list by default. In DevTools > Network, those requests show `(blocked:other)`. Allow the domain or use a clean browser profile. Flags keep working, because the flag hosts (`clientsdk` and `clientstream.launchdarkly.com`) are not on the list and evaluation does not depend on events. |
+| `npm run ld:setup` says the client-side ID belongs to another environment | `VITE_LD_CLIENT_SIDE_ID` came from a different environment than Test (environments created together share their first characters, so compare the whole ID). Copy **Test**'s client-side ID into `.env` and restart `npm run dev`. |
 | Every persona gets the default rule | The app's client-side ID belongs to a different environment than the one you configured. `npm run ld:setup` detects this. |
 | `npm run ld:setup` fails with HTTP 401 or 403 | The API token is missing, invalid, or lacks the Writer role. |
 | `npm run remediate` fails with HTTP 404 | The trigger was reset or deleted. Create or reset it and update `.env`. |
@@ -644,24 +663,25 @@ switchback-supply/
     src/launchdarkly/           Flag keys, fallbacks, contexts, personas, reason explainer
     src/pages/                  Home, shop, product page, not found
     src/components/             Layout, product cards, checkout variants, Release Console, Trail guide chat
-    src/state/                  Cart (persisted by SKU), toasts, and the listener log
+    src/state/                  Cart (persisted by SKU), the current shopper (persona switching), toasts, and the listener log
     public/products/            Product photos (WebP, 800 x 800)
   server/                       AI shopping assistant: AgentControl config, Claude call, tracking (Node)
   api/                          Vercel Functions: /api/assistant and /api/assistant-feedback
   scripts/remediate.sh          Calls the flag trigger (Part 1 remediation)
-  scripts/ld-setup.mjs          Applies the Part 2 flag, segment, and targeting, and the AgentControl config, through the REST API
-  scripts/ld-ai-config.mjs      The assistant's config, three variations, prompts, and metric as data
+  scripts/ld-setup.mjs          Applies the Part 2 flag, segment, and targeting, the checkout metrics, and the AgentControl config, through the REST API
+  scripts/ld-ai-config.mjs      The assistant's config, four variations, prompts, and metrics as data
   scripts/assistant-traffic.mjs Labeled synthetic shoppers for the experiment (real Claude replies)
   scripts/ld-targeting.mjs      The Part 2 configuration as data (reviewed in pull requests)
   scripts/ld-metrics.mjs        Part 1's checkout metrics as data
   scripts/catalog-source.py     Product copy, prices, and variants; generates data/catalog.json
   scripts/validate-catalog.mjs  Catalog checks run in CI
   vercel.json                   Build settings, function duration, and single-page app routing for Vercel
-  tests/e2e/                  Playwright end-to-end tests
-  tests/mock-launchdarkly/    Local mock of LaunchDarkly's client-side endpoints for tests
-  playwright.config.ts        End-to-end setup: mock server, dev server, production build
-  .github/workflows/ci.yml    Catalog check, typecheck, lint, unit tests, build, secrets guard, end-to-end tests
-  .env.example                Configuration template
+  docs/demo-runbook.md          Presenter's checklist, 12-minute demo script, and recovery steps
+  tests/e2e/                    Playwright end-to-end tests
+  tests/mock-launchdarkly/      Local mock of LaunchDarkly's client-side endpoints for tests
+  playwright.config.ts          End-to-end setup: mock server, dev server, production build
+  .github/workflows/ci.yml      Catalog check, typecheck, lint, unit tests, build, secrets guard, end-to-end tests
+  .env.example                  Configuration template; every variable commented
 ```
 
 ## Scripts
